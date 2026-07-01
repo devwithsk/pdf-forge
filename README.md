@@ -1,0 +1,149 @@
+# PDFForge - Decoupled Online PDF Utility Platform
+
+PDFForge is a lightning-fast, secure, and 100% free online PDF utility platform. The site is designed to capture organic search traffic (SEO) and monetize through Google AdSense, providing premium services with **zero sign-up walls**.
+
+---
+
+## 🛠️ Architecture & Tech Stack
+
+The project uses a decoupled, three-tier microservice style:
+
+1. **Frontend (UI/UX):** Built with **React (Vite)** and **Tailwind CSS v4**. Implements responsive web layouts, custom typography (Inter font), high-attention AdSense placements, and intuitive drag-and-drop workspace triggers.
+2. **Backend API (Controller):** Powered by **Node.js** and **Express.js**. Manages file streams using `multer`, rate-limits requests, handles database analytics, and spawns Python processes to execute document modifications.
+3. **Processing Engine (The Brain):** Pure **Python** modules wrapped in a virtual environment (`venv`). It runs robust scripts using `pypdf`, `pikepdf`, `pdf2image`, `pdf2docx`, `openpyxl`, and `reportlab`.
+
+---
+
+## 📂 Repository Structure
+
+```text
+pdf-utility-platform/
+│
+├── frontend/                     # React Client Application
+│   ├── src/
+│   │   ├── components/           # Navbar, Footer, AdBanners, DragDropZone
+│   │   ├── pages/                # Home Dashboard, Tool, and Download Screens
+│   │   ├── context/              # AppState Context (global states)
+│   │   └── utils/                # Axios API configurations
+│   └── package.json
+│
+├── backend-api/                  # Node.js + Express API
+│   ├── config/                   # MongoDB connection config
+│   ├── controllers/              # Request parsing & python runners
+│   ├── middlewares/              # File uploads (Multer) & Rate limiting
+│   ├── routes/                   # Routing endpoints
+│   ├── models/                   # Analytics and Error Schemas
+│   ├── uploads/                  # Temporary cache folder for input files
+│   └── processed/                # Temporary cache folder for output files
+│
+└── python-engine/                # Python Core Logic
+    ├── modules/                  # Conversion and manipulation scripts
+    ├── tests/                    # Automation local test scripts
+    └── requirements.txt          # Python package requirements
+```
+
+---
+
+## 🚀 Setup & Execution Guide
+
+### ⚡ 1-Click Startup (Windows)
+To run the entire platform at once, simply double-click the **`run.bat`** file in the root workspace directory. It will:
+- Check if `node_modules` are installed for the frontend and backend (installing them if missing).
+- Start the Backend API Server on `http://localhost:5000` in a dedicated console window.
+- Start the Frontend Client on `http://localhost:5173` in a second dedicated console window.
+
+---
+
+### Manual Setup & Execution
+
+If you prefer to run services manually, follow the individual steps below:
+
+### 1. Processing Engine Setup (Python)
+
+Ensure Python 3.10+ is installed.
+
+```bash
+# Navigate to python engine folder
+cd python-engine
+
+# Create virtual environment
+py -m venv venv
+
+# Activate virtual environment
+# Windows:
+.\venv\Scripts\activate
+# Linux/macOS:
+source venv/bin/activate
+
+# Install requirements
+pip install -r requirements.txt
+```
+
+> [!NOTE]
+> For **PDF to JPG** conversion, the engine uses `pdf2image` which requires **Poppler**. Install poppler on your system and add the `bin/` folder to your environment system PATH.
+
+### 2. Backend API Setup (NodeJS)
+
+MongoDB is recommended for conversion stats and error logging. The backend falls back to standard execution if MongoDB is not running locally.
+
+```bash
+# Navigate to backend API folder
+cd ../backend-api
+
+# Install npm packages
+npm install
+
+# Start Express server (runs on http://localhost:5000)
+npm run dev
+```
+
+### 3. Frontend Client Setup (React)
+
+```bash
+# Navigate to frontend folder
+cd ../frontend
+
+# Install dependencies
+npm install
+
+# Start local development server (runs on http://localhost:5173)
+npm run dev
+```
+
+---
+
+## ⚙️ Core Modules & Capabilities
+
+### Module 1: Basic File Manipulation
+* **Merge PDF:** Combine multiple PDF documents in a sorted sequence.
+* **Split PDF:** Extract a custom page range or split all pages into individual files bundled in a ZIP.
+* **Rotate PDF:** Rotate pages clockwise by 90, 180, or 270 degrees.
+
+### Module 2: Security & Formatting
+* **Protect PDF:** Encrypt a PDF with password security.
+* **Unlock PDF:** Decrypt an owner-secured PDF using its password.
+* **Watermark PDF:** Stamp rotated custom text watermarks onto all pages matching target dimensions.
+
+### Module 3: Image Conversion
+* **PDF to JPG:** Convert each page of a PDF file to JPEGs (ZIP archive).
+* **JPG to PDF:** Build a single unified PDF from multiple JPG/PNG image uploads.
+
+### Module 4: Document Conversion
+* **Word to PDF:** Render `.docx` files to PDF. (Includes a Windows Word COM automated bridge with portable Python fallback).
+* **Excel to PDF:** Render `.xlsx` sheets to PDF pages dynamically formatted in landscape.
+* **PDF to Word:** Convert PDF documents back to editable Microsoft Word documents.
+
+---
+
+## 💵 Strategic Ad Placements (Monetization)
+We placed simulated AdSense modules to maximize click-through rate (CTR) without disturbing the user:
+1. **Header Leaderboard (728x90):** Directly beneath navigation headers.
+2. **Desktop Skyscraper Sidebars (160x600):** Side spaces flanking the main upload layout.
+3. **Processing Loader Banner (336x280):** High-attention rectangle under the loading spinner.
+4. **Download Banners (300x250):** Placed directly above and below the final download button.
+5. **Mobile Sticky Anchor (320x50):** Sticky bar pinned to the bottom of mobile viewport screen.
+
+---
+
+## 🧹 Security & Storage Maintenance
+To prevent storage build-ups on your server, the backend runs a **cleanup daemon** every 15 minutes that deletes uploads and converted output files older than 30 minutes.

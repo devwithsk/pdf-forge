@@ -1,0 +1,65 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  --color-primary-light: #4785FF;
+  --color-primary: #0F62FE;
+  --color-primary-dark: #0043CE;
+  
+  --color-accent-light: #FF6F3C;
+  --color-accent: #FF4A00;
+  --color-accent-dark: #E03E00;
+  
+  --color-neutralBg: #F4F7FB;
+  
+  --font-sans: 'Inter', 'Roboto', sans-serif;
+  
+  --shadow-premium: 0 8px 30px rgb(0 0 0 / 0.04);
+  --shadow-premium-hover: 0 20px 40px rgb(0 0 0 / 0.08);
+}
+
+@layer base {
+  body {
+    background-color: var(--color-neutralBg);
+    color: #1e293b;
+    font-family: var(--font-sans);
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Premium Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #F4F7FB;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Micro-animations */
+@keyframes pulseSlow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.animate-pulse-slow {
+  animation: pulseSlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes spinner {
+  to { transform: rotate(360deg); }
+}
+
+.animate-spinner {
+  animation: spinner 0.8s linear infinite;
+}

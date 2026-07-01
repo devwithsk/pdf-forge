@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <!-- Red-orange document sheet body -->
+  <rect x="64" y="32" width="384" height="448" rx="48" fill="#FF4A00" />
+  
+  <!-- Shaded folded corner background -->
+  <path d="M320 32 L448 160 L320 160 Z" fill="#D32F2F" opacity="0.3" />
+  
+  <!-- Folded corner page overlay -->
+  <path d="M320 32 L448 160 H368 C341 160 320 139 320 112 Z" fill="#FFA726" />
+  
+  <!-- Bold PDF label -->
+  <text x="256" y="330" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="110" fill="#FFFFFF" text-anchor="middle" letter-spacing="-2">PDF</text>
+  
+  <!-- Sheet line indicators representing document content -->
+  <rect x="120" y="375" width="272" height="16" rx="8" fill="#FFFFFF" opacity="0.9" />
+  <rect x="120" y="410" width="180" height="16" rx="8" fill="#FFFFFF" opacity="0.9" />
+</svg>
