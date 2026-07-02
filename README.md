@@ -1,3 +1,13 @@
+---
+title: Pdf Forge Backend
+emoji: 🤗
+colorFrom: indigo
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # PDFForge - Decoupled Online PDF Utility Platform
 
 PDFForge is a lightning-fast, secure, and 100% free online PDF utility platform. The site is designed to capture organic search traffic (SEO) and monetize through Google AdSense, providing premium services with **zero sign-up walls**.
