@@ -22,6 +22,10 @@ router.post('/jpg2pdf', limiter, upload.array('files', 50), pdfController.jpgToP
 router.post('/word2pdf', limiter, upload.single('file'), pdfController.wordToPdf);
 router.post('/excel2pdf', limiter, upload.single('file'), pdfController.excelToPdf);
 router.post('/pdf2word', limiter, upload.single('file'), pdfController.pdfToWord);
+router.post('/pdf2excel', limiter, upload.single('file'), pdfController.pdfToExcel);
+router.post('/pdf2ppt', limiter, upload.single('file'), pdfController.pdfToPowerPoint);
+router.post('/ppt2pdf', limiter, upload.single('file'), pdfController.powerpointToPdf);
+router.post('/html2pdf', limiter, upload.single('file'), pdfController.htmlToPdf);
 
 // Analytics Route (General Dashboard conversion counters)
 router.get('/analytics', pdfController.getAnalytics);

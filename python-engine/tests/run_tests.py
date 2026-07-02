@@ -51,6 +51,23 @@ def create_mock_image(filename):
     except ImportError:
         print("Pillow not installed yet, skipping Image generation")
 
+def create_mock_pptx(filename, text="Test presentation content"):
+    try:
+        from pptx import Presentation
+        prs = Presentation()
+        slide = prs.slides.add_slide(prs.slide_layouts[0])
+        slide.shapes.title.text = "Mock Header Title"
+        slide.placeholders[1].text = text
+        prs.save(filename)
+        print(f"Created mock PPTX: {filename}")
+    except Exception as e:
+        print(f"Failed to create PPTX: {e}")
+
+def create_mock_html(filename):
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write("<h1>Sample Heading 1</h1>\n<p>This is a paragraph of mock html content.</p>\n<li>List Item 1</li>\n<li>List Item 2</li>")
+    print(f"Created mock HTML: {filename}")
+
 def run_script_module(script_path, input_dict):
     p = subprocess.Popen(
         [sys.executable, script_path],
@@ -90,12 +107,16 @@ def main():
     file_docx = os.path.join(test_dir, "test.docx")
     file_xlsx = os.path.join(test_dir, "test.xlsx")
     file_png = os.path.join(test_dir, "test.png")
+    file_pptx = os.path.join(test_dir, "test.pptx")
+    file_html = os.path.join(test_dir, "test.html")
     
     create_mock_pdf(file_pdf1, "First Document", pages=2)
     create_mock_pdf(file_pdf2, "Second Document", pages=1)
     create_mock_docx(file_docx, "Hello World from Docx file!")
     create_mock_xlsx(file_xlsx)
     create_mock_image(file_png)
+    create_mock_pptx(file_pptx, "Hello slides content!")
+    create_mock_html(file_html)
     
     # Test Merge
     print("\n--- Testing PDF Merge ---")
@@ -214,6 +235,50 @@ def main():
     })
     print("PDF to DOCX Result:", res)
     assert res.get("success"), f"PDF to DOCX failed: {res.get('error')}"
+
+    # Test PDF to XLSX
+    print("\n--- Testing PDF to XLSX ---")
+    out_pdf2xlsx = os.path.join(output_dir, "pdf2excel.xlsx")
+    res = run_script_module(doc_script, {
+        "action": "pdf2excel",
+        "file": file_pdf1,
+        "output": out_pdf2xlsx
+    })
+    print("PDF to XLSX Result:", res)
+    assert res.get("success"), f"PDF to XLSX failed: {res.get('error')}"
+
+    # Test PDF to PPTX
+    print("\n--- Testing PDF to PPTX ---")
+    out_pdf2pptx = os.path.join(output_dir, "pdf2ppt.pptx")
+    res = run_script_module(doc_script, {
+        "action": "pdf2ppt",
+        "file": file_pdf1,
+        "output": out_pdf2pptx
+    })
+    print("PDF to PPTX Result:", res)
+    assert res.get("success"), f"PDF to PPTX failed: {res.get('error')}"
+
+    # Test PPTX to PDF
+    print("\n--- Testing PPTX to PDF ---")
+    out_ppt2pdf = os.path.join(output_dir, "ppt2pdf.pdf")
+    res = run_script_module(doc_script, {
+        "action": "ppt2pdf",
+        "file": file_pptx,
+        "output": out_ppt2pdf
+    })
+    print("PPTX to PDF Result:", res)
+    assert res.get("success"), f"PPTX to PDF failed: {res.get('error')}"
+
+    # Test HTML to PDF
+    print("\n--- Testing HTML to PDF ---")
+    out_html2pdf = os.path.join(output_dir, "html2pdf.pdf")
+    res = run_script_module(doc_script, {
+        "action": "html2pdf",
+        "file": file_html,
+        "output": out_html2pdf
+    })
+    print("HTML to PDF Result:", res)
+    assert res.get("success"), f"HTML to PDF failed: {res.get('error')}"
     
     print("\n===============================")
     print("ALL INTEGRATION TESTS PASSED!!!")

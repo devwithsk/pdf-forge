@@ -24,7 +24,7 @@ if not exist "frontend\node_modules\" (
 
 :: Start Backend Server in a new window
 echo [System] Starting Backend API Server (Port 5000)...
-start "PDFForge - Backend Server" cmd /k "cd backend-api && title Backend Server && npm start"
+start "PDFForge - Backend Server" cmd /k "cd backend-api && title Backend Server && npm run dev"
 
 :: Start Frontend React Client in a new window
 echo [System] Starting Frontend Client (Port 5173)...

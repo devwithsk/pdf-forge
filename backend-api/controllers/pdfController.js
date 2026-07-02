@@ -483,6 +483,138 @@ exports.pdfToWord = async (req, res) => {
   }
 };
 
+exports.pdfToExcel = async (req, res) => {
+  const startTime = Date.now();
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: 'Please upload a PDF file.' });
+  }
+  
+  const fileSize = req.file.size;
+  const outputFileName = `excel-${uuidv4()}.xlsx`;
+  const outputPath = path.join(__dirname, '../processed', outputFileName);
+  
+  try {
+    const resultPath = await executePython('doc_convert.py', {
+      action: 'pdf2excel',
+      file: req.file.path,
+      output: outputPath
+    });
+    
+    await logAnalytics('pdf2excel', 1, fileSize, 'success', startTime);
+    cleanUpFiles([req.file.path]);
+    
+    res.json({
+      success: true,
+      downloadUrl: `/processed/${outputFileName}`,
+      fileName: outputFileName,
+      size: fs.statSync(resultPath).size
+    });
+  } catch (err) {
+    await logAnalytics('pdf2excel', 1, fileSize, 'failed', startTime, err.message, err.stack);
+    cleanUpFiles([req.file.path]);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+exports.pdfToPowerPoint = async (req, res) => {
+  const startTime = Date.now();
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: 'Please upload a PDF file.' });
+  }
+  
+  const fileSize = req.file.size;
+  const outputFileName = `presentation-${uuidv4()}.pptx`;
+  const outputPath = path.join(__dirname, '../processed', outputFileName);
+  
+  try {
+    const resultPath = await executePython('doc_convert.py', {
+      action: 'pdf2ppt',
+      file: req.file.path,
+      output: outputPath
+    });
+    
+    await logAnalytics('pdf2ppt', 1, fileSize, 'success', startTime);
+    cleanUpFiles([req.file.path]);
+    
+    res.json({
+      success: true,
+      downloadUrl: `/processed/${outputFileName}`,
+      fileName: outputFileName,
+      size: fs.statSync(resultPath).size
+    });
+  } catch (err) {
+    await logAnalytics('pdf2ppt', 1, fileSize, 'failed', startTime, err.message, err.stack);
+    cleanUpFiles([req.file.path]);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+exports.powerpointToPdf = async (req, res) => {
+  const startTime = Date.now();
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: 'Please upload a PowerPoint presentation (.pptx).' });
+  }
+  
+  const fileSize = req.file.size;
+  const outputFileName = `presentation-${uuidv4()}.pdf`;
+  const outputPath = path.join(__dirname, '../processed', outputFileName);
+  
+  try {
+    const resultPath = await executePython('doc_convert.py', {
+      action: 'ppt2pdf',
+      file: req.file.path,
+      output: outputPath
+    });
+    
+    await logAnalytics('ppt2pdf', 1, fileSize, 'success', startTime);
+    cleanUpFiles([req.file.path]);
+    
+    res.json({
+      success: true,
+      downloadUrl: `/processed/${outputFileName}`,
+      fileName: outputFileName,
+      size: fs.statSync(resultPath).size
+    });
+  } catch (err) {
+    await logAnalytics('ppt2pdf', 1, fileSize, 'failed', startTime, err.message, err.stack);
+    cleanUpFiles([req.file.path]);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+exports.htmlToPdf = async (req, res) => {
+  const startTime = Date.now();
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: 'Please upload an HTML document.' });
+  }
+  
+  const fileSize = req.file.size;
+  const outputFileName = `html-${uuidv4()}.pdf`;
+  const outputPath = path.join(__dirname, '../processed', outputFileName);
+  
+  try {
+    const resultPath = await executePython('doc_convert.py', {
+      action: 'html2pdf',
+      file: req.file.path,
+      output: outputPath
+    });
+    
+    await logAnalytics('html2pdf', 1, fileSize, 'success', startTime);
+    cleanUpFiles([req.file.path]);
+    
+    res.json({
+      success: true,
+      downloadUrl: `/processed/${outputFileName}`,
+      fileName: outputFileName,
+      size: fs.statSync(resultPath).size
+    });
+  } catch (err) {
+    await logAnalytics('html2pdf', 1, fileSize, 'failed', startTime, err.message, err.stack);
+    cleanUpFiles([req.file.path]);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 // API Endpoint to fetch general conversion metrics for frontend visual show
 exports.getAnalytics = async (req, res) => {
   try {

@@ -82,13 +82,17 @@ const ToolPage = () => {
       formData.append('color', watermarkColor);
       setStatusText('Applying watermark stamp...');
     } else if (tool.id === 'pdf2jpg') {
-      setStatusText('Extracting pages to JPG...');
+      setStatusText('Extracting PDF pages to images (JPG/PNG)...');
     } else if (tool.id === 'jpg2pdf') {
-      setStatusText('Assembling images to PDF...');
-    } else if (tool.id === 'word2pdf' || tool.id === 'excel2pdf') {
+      setStatusText('Assembling images (JPG/JPEG/PNG) to PDF...');
+    } else if (tool.id === 'word2pdf' || tool.id === 'excel2pdf' || tool.id === 'ppt2pdf' || tool.id === 'html2pdf') {
       setStatusText('Converting document layout to PDF...');
     } else if (tool.id === 'pdf2word') {
       setStatusText('Converting PDF layout to Word document...');
+    } else if (tool.id === 'pdf2excel') {
+      setStatusText('Converting PDF tables to Excel spreadsheet...');
+    } else if (tool.id === 'pdf2ppt') {
+      setStatusText('Converting PDF slides to PowerPoint presentation...');
     }
 
     try {

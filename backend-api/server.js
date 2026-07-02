@@ -10,13 +10,21 @@ const pdfController = require('./controllers/pdfController');
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 7860;
 
 // Connect to MongoDB
 connectDB();
 
 // Middleware
-app.use(cors());
+const allowedOrigins = [
+  'YOUR_CLOUDFLARE_URL_HERE',
+  'http://localhost:5173'
+];
+app.use(cors({
+  origin: allowedOrigins,
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -34,7 +42,7 @@ app.get('/', (req, res) => {
 // Start the periodic file clean-up daemon to clean up old temp files
 pdfController.startPeriodicCleanup();
 
-// Start Server
-app.listen(PORT, () => {
+// Start Server binding explicitly to 0.0.0.0
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Server] Express server running on port ${PORT}`);
 });

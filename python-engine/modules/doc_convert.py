@@ -236,6 +236,223 @@ def pdf_to_word(file_path, output_path):
     cv.close()
     return output_path
 
+def pdf_to_excel(file_path, output_path):
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File not found: {file_path}")
+    import openpyxl
+    from pypdf import PdfReader
+    import re
+    
+    reader = PdfReader(file_path)
+    wb = openpyxl.Workbook()
+    
+    # Remove default sheet
+    default_sheet = wb.active
+    wb.remove(default_sheet)
+    
+    for idx, page in enumerate(reader.pages):
+        ws = wb.create_sheet(title=f"Page {idx+1}")
+        text = page.extract_text()
+        if not text:
+            continue
+        
+        row_num = 1
+        for line in text.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+            parts = re.split(r'\t| {2,}', line)
+            for col_num, part in enumerate(parts):
+                ws.cell(row=row_num, column=col_num+1, value=part)
+            row_num += 1
+            
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    wb.save(output_path)
+    return output_path
+
+def pdf_to_ppt(file_path, output_path):
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File not found: {file_path}")
+    from pptx import Presentation
+    from pptx.util import Inches, Pt
+    from pypdf import PdfReader
+    
+    reader = PdfReader(file_path)
+    prs = Presentation()
+    blank_layout = prs.slide_layouts[6] # Blank slide
+    
+    for idx, page in enumerate(reader.pages):
+        slide = prs.slides.add_slide(blank_layout)
+        text = page.extract_text()
+        if not text:
+            continue
+        
+        # Sizing box
+        left = Inches(0.75)
+        top = Inches(0.75)
+        width = Inches(8.5)
+        height = Inches(6.0)
+        
+        txBox = slide.shapes.add_textbox(left, top, width, height)
+        tf = txBox.text_frame
+        tf.word_wrap = True
+        
+        for i, line in enumerate(text.split('\n')):
+            line = line.strip()
+            if not line:
+                continue
+            if i == 0:
+                p = tf.paragraphs[0]
+                p.text = line
+                p.font.bold = True
+                p.font.size = Pt(20)
+                p.space_after = Pt(14)
+            else:
+                p = tf.add_paragraph()
+                p.text = line
+                p.font.size = Pt(12)
+                p.space_after = Pt(6)
+                
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    prs.save(output_path)
+    return output_path
+
+def convert_ppt_to_pdf_com(file_path, output_path):
+    abs_input = os.path.abspath(file_path)
+    abs_output = os.path.abspath(output_path)
+    
+    import win32com.client
+    powerpoint = win32com.client.Dispatch("PowerPoint.Application")
+    try:
+        pres = powerpoint.Presentations.Open(abs_input, WithWindow=False)
+        # ppSaveAsPDF is 32
+        pres.SaveAs(abs_output, FileFormat=32)
+        pres.Close()
+    finally:
+        powerpoint.Quit()
+
+def ppt_to_pdf_portable(file_path, output_path):
+    from pptx import Presentation
+    
+    prs = Presentation(file_path)
+    doc_template = SimpleDocTemplate(
+        output_path, 
+        pagesize=landscape(letter),
+        rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40
+    )
+    
+    styles = getSampleStyleSheet()
+    story = []
+    
+    normal_style = ParagraphStyle(
+        name='PptNormal',
+        parent=styles['Normal'],
+        fontSize=10,
+        leading=14,
+        spaceAfter=6
+    )
+    
+    title_style = ParagraphStyle(
+        name='PptTitle',
+        parent=styles['Heading2'],
+        fontSize=16,
+        leading=20,
+        spaceAfter=12
+    )
+    
+    for idx, slide in enumerate(prs.slides):
+        if idx > 0:
+            story.append(PageBreak())
+            
+        story.append(Paragraph(f"Slide {idx+1}", title_style))
+        
+        # Read text shapes
+        for shape in slide.shapes:
+            if shape.has_text_frame:
+                for paragraph in shape.text_frame.paragraphs:
+                    text = paragraph.text.strip()
+                    if text:
+                        story.append(Paragraph(text, normal_style))
+                        
+    if not story:
+        story.append(Paragraph("Empty Presentation", normal_style))
+        
+    doc_template.build(story)
+
+def ppt_to_pdf(file_path, output_path):
+    if COM_AVAILABLE:
+        try:
+            convert_ppt_to_pdf_com(file_path, output_path)
+            return output_path
+        except Exception:
+            ppt_to_pdf_portable(file_path, output_path)
+            return output_path
+    else:
+        ppt_to_pdf_portable(file_path, output_path)
+        return output_path
+
+from html.parser import HTMLParser
+
+class SimpleHTMLParser(HTMLParser):
+    def __init__(self, styles):
+        super().__init__()
+        self.styles = styles
+        self.story = []
+        self.current_tag = None
+        self.current_text = ""
+        
+    def handle_starttag(self, tag, attrs):
+        self.current_tag = tag
+        self.current_text = ""
+        
+    def handle_endtag(self, tag):
+        text = self.current_text.strip()
+        if text:
+            if tag == 'h1':
+                self.story.append(Paragraph(text, self.styles['Heading1']))
+                self.story.append(Spacer(1, 10))
+            elif tag == 'h2':
+                self.story.append(Paragraph(text, self.styles['Heading2']))
+                self.story.append(Spacer(1, 8))
+            elif tag == 'p':
+                self.story.append(Paragraph(text, self.styles['Normal']))
+                self.story.append(Spacer(1, 6))
+            elif tag == 'li':
+                self.story.append(Paragraph(f"• {text}", self.styles['Normal']))
+                self.story.append(Spacer(1, 4))
+        self.current_tag = None
+        
+    def handle_data(self, data):
+        if self.current_tag:
+            self.current_text += data
+        else:
+            text = data.strip()
+            if text:
+                self.story.append(Paragraph(text, self.styles['Normal']))
+                self.story.append(Spacer(1, 6))
+
+def html_to_pdf(file_path, output_path):
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File not found: {file_path}")
+    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+        html_content = f.read()
+        
+    doc_template = SimpleDocTemplate(
+        output_path, 
+        pagesize=letter,
+        rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40
+    )
+    
+    styles = getSampleStyleSheet()
+    parser = SimpleHTMLParser(styles)
+    parser.feed(html_content)
+    
+    if not parser.story:
+        parser.story.append(Paragraph("Empty HTML Document", styles['Normal']))
+        
+    doc_template.build(parser.story)
+    return output_path
+
 def main():
     try:
         input_data = sys.stdin.read()
@@ -262,6 +479,30 @@ def main():
             file_path = params.get("file")
             output = params.get("output")
             result = pdf_to_word(file_path, output)
+            print(json.dumps({"success": True, "output": result}))
+
+        elif action == "pdf2excel":
+            file_path = params.get("file")
+            output = params.get("output")
+            result = pdf_to_excel(file_path, output)
+            print(json.dumps({"success": True, "output": result}))
+
+        elif action == "pdf2ppt":
+            file_path = params.get("file")
+            output = params.get("output")
+            result = pdf_to_ppt(file_path, output)
+            print(json.dumps({"success": True, "output": result}))
+
+        elif action == "ppt2pdf":
+            file_path = params.get("file")
+            output = params.get("output")
+            result = ppt_to_pdf(file_path, output)
+            print(json.dumps({"success": True, "output": result}))
+
+        elif action == "html2pdf":
+            file_path = params.get("file")
+            output = params.get("output")
+            result = html_to_pdf(file_path, output)
             print(json.dumps({"success": True, "output": result}))
             
         else:
