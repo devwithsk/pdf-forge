@@ -14,10 +14,13 @@ const ToolPage = () => {
   
   const [tool, setTool] = useState(null);
   const [files, setFiles] = useState([]);
+  const selectedFiles = files;
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusText, setStatusText] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [successResult, setSuccessResult] = useState(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+
 
   // Tool specific configuration states
   const [password, setPassword] = useState('');
@@ -29,6 +32,11 @@ const ToolPage = () => {
   const [watermarkOpacity, setWatermarkOpacity] = useState('0.3');
   const [watermarkColor, setWatermarkColor] = useState('#888888');
 
+  // Image to PDF settings states
+  const [paperSize, setPaperSize] = useState('A4'); // 'A4', 'Letter', 'Auto'
+  const [orientation, setOrientation] = useState('Portrait'); // 'Portrait', 'Landscape'
+  const [mergeMode, setMergeMode] = useState('merge'); // 'merge', 'individual'
+
   useEffect(() => {
     const currentTool = tools.find(t => t.id === toolId);
     if (!currentTool) {
@@ -38,6 +46,9 @@ const ToolPage = () => {
       setFiles([]); // Reset files on tool switch
       setErrorMsg('');
       setSuccessResult(null);
+      setPaperSize('A4');
+      setOrientation('Portrait');
+      setMergeMode('merge');
     }
   }, [toolId, tools, navigate]);
 
@@ -53,16 +64,7 @@ const ToolPage = () => {
 
     const formData = new FormData();
     
-    // Append files
-    if (tool.multiple) {
-      files.forEach(file => {
-        formData.append('files', file);
-      });
-    } else {
-      formData.append('file', files[0]);
-    }
-
-    // Append tool specific fields
+    // Append tool specific fields first
     if (tool.id === 'protect' || tool.id === 'unlock') {
       formData.append('password', password);
       setStatusText(tool.id === 'protect' ? 'Encrypting PDF...' : 'Decrypting PDF...');
@@ -84,6 +86,12 @@ const ToolPage = () => {
     } else if (tool.id === 'pdf2jpg') {
       setStatusText('Extracting PDF pages to images (JPG/PNG)...');
     } else if (tool.id === 'jpg2pdf') {
+      const settingsPayload = {
+        paperSize: paperSize,
+        orientation: orientation.toLowerCase(),
+        mode: files.length > 1 ? mergeMode : 'merge'
+      };
+      formData.append('settings', JSON.stringify(settingsPayload));
       setStatusText('Assembling images (JPG/JPEG/PNG) to PDF...');
     } else if (tool.id === 'word2pdf' || tool.id === 'excel2pdf' || tool.id === 'ppt2pdf' || tool.id === 'html2pdf') {
       setStatusText('Converting document layout to PDF...');
@@ -93,6 +101,19 @@ const ToolPage = () => {
       setStatusText('Converting PDF tables to Excel spreadsheet...');
     } else if (tool.id === 'pdf2ppt') {
       setStatusText('Converting PDF slides to PowerPoint presentation...');
+    }
+
+    // Append files after fields
+    if (tool.id === 'jpg2pdf') {
+      files.forEach(file => {
+        formData.append('images', file);
+      });
+    } else if (tool.multiple) {
+      files.forEach(file => {
+        formData.append('files', file);
+      });
+    } else {
+      formData.append('file', files[0]);
     }
 
     try {
@@ -121,6 +142,40 @@ const ToolPage = () => {
       setErrorMsg(err.response?.data?.error || err.message || 'An error occurred during processing.');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!successResult || !successResult.downloadUrl) return;
+    setIsDownloading(true);
+    try {
+      const backendUrl = api.defaults.baseURL
+        ? (api.defaults.baseURL.endsWith('/api') ? api.defaults.baseURL.slice(0, -4) : api.defaults.baseURL)
+        : '';
+      
+      const fileUrl = `${backendUrl}${successResult.downloadUrl}`;
+      
+      const response = await api.get(fileUrl, {
+        responseType: 'blob',
+      });
+      
+      const blob = response.data;
+      const objectUrl = window.URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.setAttribute('download', successResult.fileName || 'forged-document.pdf');
+      
+      document.body.appendChild(link);
+      link.click();
+      
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      console.error('Secure download failed:', err);
+      alert('Failed to securely download the file. Please try again.');
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -171,21 +226,32 @@ const ToolPage = () => {
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md">
-                <a
-                  href={`${import.meta.env.VITE_API_URL || ''}${successResult.downloadUrl}`}
-                  download={successResult.fileName}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-grow py-3 bg-accent text-white hover:bg-accent-dark rounded-xl font-bold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg shadow-accent/20 cursor-pointer text-center"
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  disabled={isDownloading}
+                  className="flex-grow py-3 bg-accent text-white hover:bg-accent-dark rounded-xl font-bold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg shadow-accent/20 cursor-pointer text-center disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Download size={16} /> Download Your File
-                </a>
+                  {isDownloading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Downloading...
+                    </>
+                  ) : (
+                    <>
+                      <Download size={16} /> Download Your File
+                    </>
+                  )}
+                </button>
                 <button
                   type="button"
                   onClick={() => {
                     setFiles([]);
                     setSuccessResult(null);
                     setPassword('');
+                    setPaperSize('A4');
+                    setOrientation('Portrait');
+                    setMergeMode('merge');
                   }}
                   className="flex-grow py-3 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl font-bold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2"
                 >
@@ -358,6 +424,114 @@ const ToolPage = () => {
                             className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary"
                           />
                         </div>
+                      </div>
+                    )}
+
+                    {/* Image to PDF settings */}
+                    {tool.id === 'jpg2pdf' && (
+                      <div className="space-y-4 pt-4 border-t border-slate-200/60">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-600 uppercase mb-2">
+                              Paper Size
+                            </label>
+                            <select
+                              value={paperSize}
+                              onChange={(e) => setPaperSize(e.target.value)}
+                              className="block w-full p-3 border border-slate-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
+                            >
+                              <option value="A4">A4 (Portrait: 210 x 297 mm)</option>
+                              <option value="Letter">US Letter (Portrait: 8.5 x 11 in)</option>
+                              <option value="Auto">Auto (Same size as original image)</option>
+                            </select>
+                          </div>
+                          
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-600 uppercase mb-2">
+                              Page Orientation
+                            </label>
+                            <div className="flex gap-4 p-2 bg-white border border-slate-200 rounded-xl h-[46px] items-center">
+                              <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="orientation"
+                                  value="Portrait"
+                                  checked={orientation === 'Portrait'}
+                                  onChange={() => setOrientation('Portrait')}
+                                  disabled={paperSize === 'Auto'}
+                                  className="text-primary disabled:opacity-50"
+                                />
+                                <span className={paperSize === 'Auto' ? 'text-slate-400' : ''}>Portrait</span>
+                              </label>
+                              <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="orientation"
+                                  value="Landscape"
+                                  checked={orientation === 'Landscape'}
+                                  onChange={() => setOrientation('Landscape')}
+                                  disabled={paperSize === 'Auto'}
+                                  className="text-primary disabled:opacity-50"
+                                />
+                                <span className={paperSize === 'Auto' ? 'text-slate-400' : ''}>Landscape</span>
+                              </label>
+                            </div>
+                            {paperSize === 'Auto' && (
+                              <p className="text-[10px] text-slate-400 mt-1 font-semibold">Orientation is locked in Auto size mode</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {selectedFiles.length > 1 && (
+                          <div className="radio-group">
+                            <label className="block text-[11px] font-bold text-slate-600 uppercase mb-2">
+                              Conversion Method
+                            </label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <label className={`flex flex-col p-4 border rounded-2xl cursor-pointer transition-all duration-200 ${
+                                mergeMode === 'merge'
+                                  ? 'border-primary bg-primary/5 text-primary'
+                                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                              }`}>
+                                <div className="flex items-center gap-2 font-bold text-sm">
+                                  <input
+                                    type="radio"
+                                    name="mergeMode"
+                                    value="merge"
+                                    checked={mergeMode === 'merge'}
+                                    onChange={() => setMergeMode('merge')}
+                                    className="text-primary"
+                                  />
+                                  Merge into single PDF
+                                </div>
+                                <span className="text-[11px] text-slate-400 mt-1 font-medium pl-5">
+                                  Combine all images in sequential order into a multi-page document.
+                                </span>
+                              </label>
+
+                              <label className={`flex flex-col p-4 border rounded-2xl cursor-pointer transition-all duration-200 ${
+                                mergeMode === 'individual'
+                                  ? 'border-primary bg-primary/5 text-primary'
+                                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                              }`}>
+                                <div className="flex items-center gap-2 font-bold text-sm">
+                                  <input
+                                    type="radio"
+                                    name="mergeMode"
+                                    value="individual"
+                                    checked={mergeMode === 'individual'}
+                                    onChange={() => setMergeMode('individual')}
+                                    className="text-primary"
+                                  />
+                                  Convert to individual PDFs (ZIP)
+                                </div>
+                                <span className="text-[11px] text-slate-400 mt-1 font-medium pl-5">
+                                  Convert each image to a separate PDF file, packaged in a single ZIP archive.
+                                </span>
+                              </label>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

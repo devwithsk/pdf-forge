@@ -16,7 +16,7 @@ router.post('/watermark', limiter, upload.single('file'), pdfController.watermar
 
 // Module 3: Image Conversion
 router.post('/pdf2jpg', limiter, upload.single('file'), pdfController.pdfToJpg);
-router.post('/jpg2pdf', limiter, upload.array('files', 50), pdfController.jpgToPdf);
+router.post('/jpg2pdf', limiter, upload.array('images', 50), pdfController.jpgToPdf);
 
 // Module 4: Document Conversion
 router.post('/word2pdf', limiter, upload.single('file'), pdfController.wordToPdf);

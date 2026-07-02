@@ -59,6 +59,48 @@ const executePython = (scriptName, payload) => {
   });
 };
 
+// Spawn Python process with command-line arguments and communicate via stdout/stderr
+const spawnPythonArgs = (scriptName, args) => {
+  return new Promise((resolve, reject) => {
+    const pythonPath = getPythonPath();
+    const scriptPath = path.join(__dirname, '../../python-engine/modules', scriptName);
+    
+    if (!fs.existsSync(scriptPath)) {
+      return reject(new Error(`Python script not found: ${scriptPath}`));
+    }
+    
+    console.log(`[spawnPythonArgs] Running: ${pythonPath} ${scriptPath} ${args.join(' ')}`);
+    const pyProcess = spawn(pythonPath, [scriptPath, ...args]);
+    
+    let stdout = '';
+    let stderr = '';
+    
+    pyProcess.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+    
+    pyProcess.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+    
+    pyProcess.on('close', (code) => {
+      if (code !== 0) {
+        return reject(new Error(`Python script error (code ${code}): ${stderr || 'Unknown script crash'}`));
+      }
+      try {
+        const response = JSON.parse(stdout.trim());
+        if (response.success) {
+          resolve(response.output);
+        } else {
+          reject(new Error(response.error || 'Python processing failed'));
+        }
+      } catch (err) {
+        reject(new Error(`Invalid JSON output from Python script: ${stdout.substring(0, 500)}. Error: ${err.message}`));
+      }
+    });
+  });
+};
+
 // Log analytics to MongoDB (with try-catch to keep running if MongoDB connection is missing)
 const logAnalytics = async (toolName, filesCount, totalSize, status, startTime, errorMessage = null, stackTrace = null) => {
   const duration = Date.now() - startTime;
@@ -358,15 +400,36 @@ exports.jpgToPdf = async (req, res) => {
   
   const filePaths = req.files.map(f => f.path);
   const totalSize = req.files.reduce((sum, f) => sum + f.size, 0);
-  const outputFileName = `images-${uuidv4()}.pdf`;
+  
+  console.log('Raw req.body.settings:', req.body.settings);
+  
+  let settings = {};
+  if (req.body.settings) {
+    try {
+      settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings;
+    } catch (e) {
+      console.error('Failed to parse settings:', e);
+    }
+  }
+  
+  const paperSize = settings.paperSize || 'A4';
+  const orientation = settings.orientation || 'portrait';
+  const mergeMode = settings.mode || 'merge';
+  
+  console.log('[jpgToPdf] Parameters parsed:', { paperSize, orientation, mergeMode });
+  
+  const outputFileName = mergeMode === 'individual' ? `images-${uuidv4()}.zip` : `images-${uuidv4()}.pdf`;
   const outputPath = path.join(__dirname, '../processed', outputFileName);
   
   try {
-    const resultPath = await executePython('image_convert.py', {
-      action: 'jpg2pdf',
-      images: filePaths,
-      output: outputPath
-    });
+    const resultPath = await spawnPythonArgs('image_convert.py', [
+      'jpg2pdf',
+      filePaths.join(','),
+      outputPath,
+      paperSize,
+      orientation,
+      mergeMode
+    ]);
     
     await logAnalytics('jpg2pdf', filePaths.length, totalSize, 'success', startTime);
     cleanUpFiles(filePaths);
