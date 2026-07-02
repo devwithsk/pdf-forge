@@ -71,7 +71,7 @@ export const TOOLS = [
   },
   {
     id: 'pdf2jpg',
-    name: 'PDF to Image',
+    name: 'PDF to Jpg',
     desc: 'Convert PDF pages into high-quality JPG or PNG image files bundled in a ZIP.',
     icon: 'FileImage',
     module: 'Image Conversion',
@@ -82,7 +82,7 @@ export const TOOLS = [
   },
   {
     id: 'jpg2pdf',
-    name: 'Image to PDF',
+    name: 'Jpg to PDF',
     desc: 'Convert image files (JPG, JPEG, PNG) into a single unified PDF document.',
     icon: 'Images',
     module: 'Image Conversion',
@@ -193,7 +193,7 @@ export const CATEGORIES = [
     id: 'convert-to',
     name: 'Convert to PDF',
     tools: [
-      { id: 'jpg2pdf', name: 'Image to PDF', icon: 'Images', desc: 'Convert JPG, JPEG, PNG to PDF.', isPlaceholder: false },
+      { id: 'jpg2pdf', name: 'Jpg to PDF', icon: 'Images', desc: 'Convert JPG, JPEG, PNG to PDF.', isPlaceholder: false },
       { id: 'word2pdf', name: 'Word to PDF', icon: 'FileText', desc: 'Convert Word doc to PDF.', isPlaceholder: false },
       { id: 'excel2pdf', name: 'Excel to PDF', icon: 'Table', desc: 'Convert Excel sheet to PDF.', isPlaceholder: false },
       { id: 'ppt2pdf', name: 'PowerPoint to PDF', icon: 'Tv', desc: 'Convert PPTX presentation to PDF.', isPlaceholder: false },
@@ -204,7 +204,7 @@ export const CATEGORIES = [
     id: 'convert-from',
     name: 'Convert from PDF',
     tools: [
-      { id: 'pdf2jpg', name: 'PDF to Image', icon: 'FileImage', desc: 'Convert PDF pages to JPG/PNG.', isPlaceholder: false },
+      { id: 'pdf2jpg', name: 'PDF to Jpg', icon: 'FileImage', desc: 'Convert PDF pages to JPG/PNG.', isPlaceholder: false },
       { id: 'pdf2word', name: 'PDF to Word', icon: 'FileEdit', desc: 'Convert PDF to Word doc.', isPlaceholder: false },
       { id: 'pdf2excel', name: 'PDF to Excel', icon: 'TableProperties', desc: 'Convert PDF text to Excel sheet.', isPlaceholder: false },
       { id: 'pdf2ppt', name: 'PDF to PowerPoint', icon: 'Presentation', desc: 'Convert PDF to PPTX presentation.', isPlaceholder: false }
@@ -232,7 +232,7 @@ export const CATEGORIES = [
 export const AppProvider = ({ children }) => {
   const [conversionResult, setConversionResult] = useState(null); // { downloadUrl, fileName, size }
   const [stats, setStats] = useState({ totalConversions: 0 });
-  
+
   return (
     <AppContext.Provider value={{
       tools: TOOLS,
