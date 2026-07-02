@@ -17,7 +17,8 @@ connectDB();
 
 // Middleware
 const allowedOrigins = [
-  'YOUR_CLOUDFLARE_URL_HERE',
+  'https://pfdforge.netlify.app',
+  'https://pdf-forge.pages.dev',
   'http://localhost:5173'
 ];
 app.use(cors({

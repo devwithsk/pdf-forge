@@ -172,7 +172,7 @@ const ToolPage = () => {
 
               <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md">
                 <a
-                  href={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${successResult.downloadUrl}`}
+                  href={`${import.meta.env.VITE_API_URL || ''}${successResult.downloadUrl}`}
                   download={successResult.fileName}
                   target="_blank"
                   rel="noopener noreferrer"
