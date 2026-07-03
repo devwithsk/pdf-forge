@@ -3,6 +3,7 @@ import sys
 import json
 import zipfile
 from pypdf import PdfReader, PdfWriter
+from limits import assert_pdf_limits
 
 def parse_range(range_str, max_pages):
     """
@@ -32,9 +33,12 @@ def merge_pdfs(files, output_path):
         raise ValueError("At least two files are required for merging.")
     
     merger = PdfWriter()
+    total_pages = 0
     for file in files:
-        if not os.path.exists(file):
-            raise FileNotFoundError(f"File not found: {file}")
+        reader = assert_pdf_limits(file)
+        total_pages += len(reader.pages)
+        if total_pages > 100:
+            raise ValueError("Merged PDF exceeds 100 page limit.")
         merger.append(file)
     
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -44,10 +48,7 @@ def merge_pdfs(files, output_path):
     return output_path
 
 def split_pdf(file_path, output_dir, split_mode="all", range_str=""):
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"File not found: {file_path}")
-    
-    reader = PdfReader(file_path)
+    reader = assert_pdf_limits(file_path)
     total_pages = len(reader.pages)
     os.makedirs(output_dir, exist_ok=True)
     
@@ -93,13 +94,10 @@ def split_pdf(file_path, output_dir, split_mode="all", range_str=""):
         raise ValueError(f"Unknown split mode: {split_mode}")
 
 def rotate_pdf(file_path, output_path, degrees=90):
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"File not found: {file_path}")
-    
     if degrees not in [90, 180, 270]:
         raise ValueError("Rotation angle must be 90, 180, or 270 degrees.")
         
-    reader = PdfReader(file_path)
+    reader = assert_pdf_limits(file_path)
     writer = PdfWriter()
     
     for page in reader.pages:

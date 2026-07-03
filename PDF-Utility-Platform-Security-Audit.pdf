@@ -1,0 +1,358 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [7 0 R 9 0 R 11 0 R 13 0 R 15 0 R 17 0 R] /Count 6 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+6 0 obj
+<< /Length 3722 >>
+stream
+BT /F2 20 Tf 54 738.00 Td (PDF Utility Platform - Security & Architecture) Tj ET
+BT /F2 20 Tf 54 713.00 Td (  Audit) Tj ET
+BT /F1 9 Tf 54 680.00 Td (Role: Senior Full-Stack Architect and Lead Security Auditor) Tj ET
+BT /F1 9 Tf 54 665.00 Td (Scope: React/Vite frontend, Express/Multer backend, Node-to-Python processing bridge, Python PDF/document) Tj ET
+BT /F1 9 Tf 54 653.00 Td (  engines, Docker runtime, and temp-file lifecycle.) Tj ET
+BT /F2 15 Tf 54 630.00 Td (Executive Summary) Tj ET
+BT /F1 10 Tf 54 605.00 Td (The core architecture is workable and avoids the worst command-injection mistake because Python) Tj ET
+BT /F1 10 Tf 54 591.00 Td (  is spawned with argument arrays instead of shell interpolation. However, the platform is) Tj ET
+BT /F1 10 Tf 54 577.00 Td (  currently vulnerable to resource exhaustion and unsafe file-processing risks. The highest-risk) Tj ET
+BT /F1 10 Tf 54 563.00 Td (  issues are missing server-side file type validation, unbounded Python processing, no) Tj ET
+BT /F1 10 Tf 54 549.00 Td (  child-process timeout/concurrency control, and public static exposure of processed files.) Tj ET
+BT /F2 15 Tf 54 521.00 Td (1. Security Vulnerabilities) Tj ET
+BT /F2 12 Tf 54 492.00 Td ([HIGH] Server-side upload validation is extension-only or absent) Tj ET
+BT /F1 10 Tf 54 472.00 Td (Affected files: backend-api/middlewares/upload.js, backend-api/routes/pdfRoutes.js,) Tj ET
+BT /F1 10 Tf 54 458.00 Td (  frontend/src/components/DragDropZone.jsx.) Tj ET
+BT /F1 10 Tf 54 438.00 Td (Multer limits file size to 50 MB, but it does not validate MIME type, magic bytes, page count,) Tj ET
+BT /F1 10 Tf 54 424.00 Td (  image dimensions, or file structure. The frontend checks extensions, but client-side checks are) Tj ET
+BT /F1 10 Tf 54 410.00 Td (  bypassable.) Tj ET
+BT /F1 10 Tf 54 390.00 Td (Risk: an attacker can upload a renamed binary, malformed PDF, image decompression bomb, or) Tj ET
+BT /F1 10 Tf 54 376.00 Td (  Office ZIP bomb and force Python libraries to parse it.) Tj ET
+BT /F3 8 Tf 66 353.00 Td (// backend-api/middlewares/upload.js) Tj ET
+BT /F3 8 Tf 66 343.00 Td (const allowed = {) Tj ET
+BT /F3 8 Tf 66 333.00 Td (  '.pdf': ['application/pdf'],) Tj ET
+BT /F3 8 Tf 66 323.00 Td (  '.jpg': ['image/jpeg'],) Tj ET
+BT /F3 8 Tf 66 313.00 Td (  '.jpeg': ['image/jpeg'],) Tj ET
+BT /F3 8 Tf 66 303.00 Td (  '.png': ['image/png'],) Tj ET
+BT /F3 8 Tf 66 293.00 Td (  '.docx': ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],) Tj ET
+BT /F3 8 Tf 66 283.00 Td (  '.xlsx': ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],) Tj ET
+BT /F3 8 Tf 66 273.00 Td (  '.pptx': ['application/vnd.openxmlformats-officedocument.presentationml.presentation'],) Tj ET
+BT /F3 8 Tf 66 263.00 Td (  '.html': ['text/html'],) Tj ET
+BT /F3 8 Tf 66 253.00 Td (};) Tj ET
+BT /F3 8 Tf 66 243.00 Td () Tj ET
+BT /F3 8 Tf 66 233.00 Td (const fileFilter = \(req, file, cb\) => {) Tj ET
+BT /F3 8 Tf 66 223.00 Td (  const ext = path.extname\(file.originalname\).toLowerCase\(\);) Tj ET
+BT /F3 8 Tf 66 213.00 Td (  if \(!allowed[ext] || !allowed[ext].includes\(file.mimetype\)\) {) Tj ET
+BT /F3 8 Tf 66 203.00 Td (    return cb\(new Error\(`Unsupported file type: ${ext}`\)\);) Tj ET
+BT /F3 8 Tf 66 193.00 Td (  }) Tj ET
+BT /F3 8 Tf 66 183.00 Td (  cb\(null, true\);) Tj ET
+BT /F3 8 Tf 66 173.00 Td (};) Tj ET
+BT /F3 8 Tf 66 163.00 Td () Tj ET
+BT /F3 8 Tf 66 153.00 Td (module.exports = multer\({) Tj ET
+BT /F3 8 Tf 66 143.00 Td (  storage,) Tj ET
+BT /F3 8 Tf 66 133.00 Td (  fileFilter,) Tj ET
+BT /F3 8 Tf 66 123.00 Td (  limits: { fileSize: 50 * 1024 * 1024, files: 20, fields: 20, parts: 40 },) Tj ET
+BT /F3 8 Tf 66 113.00 Td (}\);) Tj ET
+BT /F1 8 Tf 500 30 Td (Page 1) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 6 0 R >>
+endobj
+8 0 obj
+<< /Length 2652 >>
+stream
+BT /F3 8 Tf 66 738.00 Td (const { fileTypeFromFile } = require\('file-type'\);) Tj ET
+BT /F3 8 Tf 66 728.00 Td () Tj ET
+BT /F3 8 Tf 66 718.00 Td (async function assertMagicType\(filePath, allowedMime\) {) Tj ET
+BT /F3 8 Tf 66 708.00 Td (  const detected = await fileTypeFromFile\(filePath\);) Tj ET
+BT /F3 8 Tf 66 698.00 Td (  if \(!detected || !allowedMime.includes\(detected.mime\)\) {) Tj ET
+BT /F3 8 Tf 66 688.00 Td (    throw new Error\('Uploaded file content does not match expected type.'\);) Tj ET
+BT /F3 8 Tf 66 678.00 Td (  }) Tj ET
+BT /F3 8 Tf 66 668.00 Td (}) Tj ET
+BT /F2 12 Tf 54 646.00 Td ([HIGH] PDF/image/document bombs can exhaust CPU and memory) Tj ET
+BT /F1 10 Tf 54 626.00 Td (Affected files: python-engine/modules/image_convert.py, basic_manipulation.py, doc_convert.py.) Tj ET
+BT /F1 10 Tf 54 606.00 Td (Examples: convert_from_path\(file_path, dpi=150\) converts all pages at once. PdfReader loops all) Tj ET
+BT /F1 10 Tf 54 592.00 Td (  pages. pdf2docx converts the whole document. openpyxl and python-pptx parse entire Office files.) Tj ET
+BT /F1 10 Tf 54 572.00 Td (Risk: a small compressed file can expand into thousands of pages, huge images, or massive XML) Tj ET
+BT /F1 10 Tf 54 558.00 Td (  payloads and crash the Hugging Face Space.) Tj ET
+BT /F3 8 Tf 66 535.00 Td (# python-engine/modules/limits.py) Tj ET
+BT /F3 8 Tf 66 525.00 Td (from pypdf import PdfReader) Tj ET
+BT /F3 8 Tf 66 515.00 Td (from PIL import Image) Tj ET
+BT /F3 8 Tf 66 505.00 Td () Tj ET
+BT /F3 8 Tf 66 495.00 Td (MAX_PDF_PAGES = 100) Tj ET
+BT /F3 8 Tf 66 485.00 Td (MAX_IMAGE_PIXELS = 40_000_000) Tj ET
+BT /F3 8 Tf 66 475.00 Td (Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS) Tj ET
+BT /F3 8 Tf 66 465.00 Td () Tj ET
+BT /F3 8 Tf 66 455.00 Td (def assert_pdf_limits\(file_path, max_pages=MAX_PDF_PAGES\):) Tj ET
+BT /F3 8 Tf 66 445.00 Td (    reader = PdfReader\(file_path, strict=False\)) Tj ET
+BT /F3 8 Tf 66 435.00 Td (    pages = len\(reader.pages\)) Tj ET
+BT /F3 8 Tf 66 425.00 Td (    if pages > max_pages:) Tj ET
+BT /F3 8 Tf 66 415.00 Td (        raise ValueError\(f"PDF exceeds {max_pages} page limit."\)) Tj ET
+BT /F3 8 Tf 66 405.00 Td (    return reader) Tj ET
+BT /F2 12 Tf 54 383.00 Td ([HIGH] Child processes have no timeout, kill handling, or concurrency cap) Tj ET
+BT /F1 10 Tf 54 363.00 Td (Affected file: backend-api/controllers/pdfController.js. Each request spawns a Python process) Tj ET
+BT /F1 10 Tf 54 349.00 Td (  without timeout, queue, memory guard, or child error handling. A bad PDF can hang indefinitely) Tj ET
+BT /F1 10 Tf 54 335.00 Td (  and simultaneous users can spawn many workers.) Tj ET
+BT /F1 8 Tf 500 30 Td (Page 2) Tj ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 8 0 R >>
+endobj
+10 0 obj
+<< /Length 4499 >>
+stream
+BT /F3 8 Tf 66 738.00 Td (const { spawn } = require\('child_process'\);) Tj ET
+BT /F3 8 Tf 66 728.00 Td (const PQueue = require\('p-queue'\).default;) Tj ET
+BT /F3 8 Tf 66 718.00 Td () Tj ET
+BT /F3 8 Tf 66 708.00 Td (const queue = new PQueue\({ concurrency: Number\(process.env.PYTHON_CONCURRENCY || 2\) }\);) Tj ET
+BT /F3 8 Tf 66 698.00 Td () Tj ET
+BT /F3 8 Tf 66 688.00 Td (function runPython\(scriptPath, payload, timeoutMs = 120000\) {) Tj ET
+BT /F3 8 Tf 66 678.00 Td (  return queue.add\(\(\) => new Promise\(\(resolve, reject\) => {) Tj ET
+BT /F3 8 Tf 66 668.00 Td (    const child = spawn\(getPythonPath\(\), [scriptPath], {) Tj ET
+BT /F3 8 Tf 66 658.00 Td (      stdio: ['pipe', 'pipe', 'pipe'],) Tj ET
+BT /F3 8 Tf 66 648.00 Td (      windowsHide: true,) Tj ET
+BT /F3 8 Tf 66 638.00 Td (    }\);) Tj ET
+BT /F3 8 Tf 66 628.00 Td () Tj ET
+BT /F3 8 Tf 66 618.00 Td (    const timer = setTimeout\(\(\) => {) Tj ET
+BT /F3 8 Tf 66 608.00 Td (      child.kill\('SIGKILL'\);) Tj ET
+BT /F3 8 Tf 66 598.00 Td (      reject\(new Error\('Processing timed out. Try a smaller file.'\)\);) Tj ET
+BT /F3 8 Tf 66 588.00 Td (    }, timeoutMs\);) Tj ET
+BT /F3 8 Tf 66 578.00 Td () Tj ET
+BT /F3 8 Tf 66 568.00 Td (    let stdout = '';) Tj ET
+BT /F3 8 Tf 66 558.00 Td (    let stderr = '';) Tj ET
+BT /F3 8 Tf 66 548.00 Td (    child.on\('error', reject\);) Tj ET
+BT /F3 8 Tf 66 538.00 Td (    child.stdout.on\('data', d => { stdout += d.toString\(\); if \(stdout.length > 1048576\) child.kill\('SIGKILL'\); }\);) Tj ET
+BT /F3 8 Tf 66 528.00 Td (    child.stderr.on\('data', d => { stderr += d.toString\(\); if \(stderr.length > 1048576\) child.kill\('SIGKILL'\); }\);) Tj ET
+BT /F3 8 Tf 66 518.00 Td (    child.on\('close', code => {) Tj ET
+BT /F3 8 Tf 66 508.00 Td (      clearTimeout\(timer\);) Tj ET
+BT /F3 8 Tf 66 498.00 Td (      if \(code !== 0\) return reject\(new Error\('Python processing failed.'\)\);) Tj ET
+BT /F3 8 Tf 66 488.00 Td (      const parsed = JSON.parse\(stdout\);) Tj ET
+BT /F3 8 Tf 66 478.00 Td (      parsed.success ? resolve\(parsed.output\) : reject\(new Error\(parsed.error\)\);) Tj ET
+BT /F3 8 Tf 66 468.00 Td (    }\);) Tj ET
+BT /F3 8 Tf 66 458.00 Td (    child.stdin.end\(JSON.stringify\(payload\)\);) Tj ET
+BT /F3 8 Tf 66 448.00 Td (  }\)\);) Tj ET
+BT /F3 8 Tf 66 438.00 Td (}) Tj ET
+BT /F2 12 Tf 54 416.00 Td ([MEDIUM] Public /processed directory exposes files by URL) Tj ET
+BT /F1 10 Tf 54 396.00 Td (Affected file: backend-api/server.js. Converted files are served statically. UUID names are hard) Tj ET
+BT /F1 10 Tf 54 382.00 Td (  to guess, but there is no ownership token, one-time access, request-level expiry, or) Tj ET
+BT /F1 10 Tf 54 368.00 Td (  authorization.) Tj ET
+BT /F3 8 Tf 66 345.00 Td (const crypto = require\('crypto'\);) Tj ET
+BT /F3 8 Tf 66 335.00 Td (const downloadTokens = new Map\(\);) Tj ET
+BT /F3 8 Tf 66 325.00 Td () Tj ET
+BT /F3 8 Tf 66 315.00 Td (function createDownloadToken\(fileName\) {) Tj ET
+BT /F3 8 Tf 66 305.00 Td (  const token = crypto.randomBytes\(32\).toString\('hex'\);) Tj ET
+BT /F3 8 Tf 66 295.00 Td (  downloadTokens.set\(token, { fileName, expiresAt: Date.now\(\) + 15 * 60 * 1000 }\);) Tj ET
+BT /F3 8 Tf 66 285.00 Td (  return token;) Tj ET
+BT /F3 8 Tf 66 275.00 Td (}) Tj ET
+BT /F3 8 Tf 66 265.00 Td () Tj ET
+BT /F3 8 Tf 66 255.00 Td (app.get\('/download/:token', \(req, res\) => {) Tj ET
+BT /F3 8 Tf 66 245.00 Td (  const record = downloadTokens.get\(req.params.token\);) Tj ET
+BT /F3 8 Tf 66 235.00 Td (  if \(!record || record.expiresAt < Date.now\(\)\) {) Tj ET
+BT /F3 8 Tf 66 225.00 Td (    return res.status\(404\).json\({ success: false, error: 'File expired.' }\);) Tj ET
+BT /F3 8 Tf 66 215.00 Td (  }) Tj ET
+BT /F3 8 Tf 66 205.00 Td (  const filePath = path.join\(__dirname, 'processed', path.basename\(record.fileName\)\);) Tj ET
+BT /F3 8 Tf 66 195.00 Td (  res.download\(filePath, record.fileName, \(\) => {) Tj ET
+BT /F3 8 Tf 66 185.00 Td (    downloadTokens.delete\(req.params.token\);) Tj ET
+BT /F3 8 Tf 66 175.00 Td (    fs.unlink\(filePath, \(\) => {}\);) Tj ET
+BT /F3 8 Tf 66 165.00 Td (  }\);) Tj ET
+BT /F3 8 Tf 66 155.00 Td (}\);) Tj ET
+BT /F2 12 Tf 54 133.00 Td ([MEDIUM] CORS uses credentials without an auth model) Tj ET
+BT /F1 10 Tf 54 113.00 Td (Affected file: backend-api/server.js. credentials: true is enabled, but no cookie/session) Tj ET
+BT /F1 10 Tf 54 99.00 Td (  authentication is visible. This increases cross-origin risk surface for no current benefit.) Tj ET
+BT /F1 8 Tf 500 30 Td (Page 3) Tj ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 10 0 R >>
+endobj
+12 0 obj
+<< /Length 3519 >>
+stream
+BT /F3 8 Tf 66 738.00 Td (app.use\(cors\({) Tj ET
+BT /F3 8 Tf 66 728.00 Td (  origin\(origin, cb\) {) Tj ET
+BT /F3 8 Tf 66 718.00 Td (    if \(!origin || allowedOrigins.includes\(origin\)\) return cb\(null, true\);) Tj ET
+BT /F3 8 Tf 66 708.00 Td (    cb\(new Error\('CORS origin denied'\)\);) Tj ET
+BT /F3 8 Tf 66 698.00 Td (  },) Tj ET
+BT /F3 8 Tf 66 688.00 Td (  methods: ['GET', 'POST'],) Tj ET
+BT /F3 8 Tf 66 678.00 Td (  credentials: false,) Tj ET
+BT /F3 8 Tf 66 668.00 Td (  maxAge: 86400,) Tj ET
+BT /F3 8 Tf 66 658.00 Td (}\)\);) Tj ET
+BT /F2 12 Tf 54 636.00 Td ([MEDIUM] Error responses leak internal implementation details) Tj ET
+BT /F1 10 Tf 54 616.00 Td (Affected file: backend-api/controllers/pdfController.js. Most handlers return err.message) Tj ET
+BT /F1 10 Tf 54 602.00 Td (  directly. Python errors can expose library internals, absolute paths, and processing details.) Tj ET
+BT /F3 8 Tf 66 579.00 Td (function publicError\(err\) {) Tj ET
+BT /F3 8 Tf 66 569.00 Td (  console.error\('[Processing Error]', err\);) Tj ET
+BT /F3 8 Tf 66 559.00 Td (  return 'The file could not be processed. Please verify the file type and try again.';) Tj ET
+BT /F3 8 Tf 66 549.00 Td (}) Tj ET
+BT /F3 8 Tf 66 539.00 Td () Tj ET
+BT /F3 8 Tf 66 529.00 Td (catch \(err\) {) Tj ET
+BT /F3 8 Tf 66 519.00 Td (  await logAnalytics\('merge', filePaths.length, totalSize, 'failed', startTime, err.message, err.stack\);) Tj ET
+BT /F3 8 Tf 66 509.00 Td (  cleanUpFiles\([...filePaths, outputPath]\);) Tj ET
+BT /F3 8 Tf 66 499.00 Td (  res.status\(422\).json\({ success: false, error: publicError\(err\) }\);) Tj ET
+BT /F3 8 Tf 66 489.00 Td (}) Tj ET
+BT /F2 12 Tf 54 467.00 Td ([LOW] Path traversal is mostly mitigated, but Python should enforce trusted) Tj ET
+BT /F2 12 Tf 54 451.00 Td (  directories) Tj ET
+BT /F1 10 Tf 54 431.00 Td (Good: Multer generates filenames and preserves only the extension. Node passes fixed script) Tj ET
+BT /F1 10 Tf 54 417.00 Td (  names, and spawn\(\) does not use a shell. Remaining risk: Python trusts input/output paths from) Tj ET
+BT /F1 10 Tf 54 403.00 Td (  JSON, so future route changes could accidentally expose path traversal.) Tj ET
+BT /F3 8 Tf 66 380.00 Td (# python-engine/modules/path_guard.py) Tj ET
+BT /F3 8 Tf 66 370.00 Td (from pathlib import Path) Tj ET
+BT /F3 8 Tf 66 360.00 Td () Tj ET
+BT /F3 8 Tf 66 350.00 Td (BASE_UPLOADS = Path\('/app/backend-api/uploads'\).resolve\(\)) Tj ET
+BT /F3 8 Tf 66 340.00 Td (BASE_PROCESSED = Path\('/app/backend-api/processed'\).resolve\(\)) Tj ET
+BT /F3 8 Tf 66 330.00 Td () Tj ET
+BT /F3 8 Tf 66 320.00 Td (def require_inside\(path, base\):) Tj ET
+BT /F3 8 Tf 66 310.00 Td (    resolved = Path\(path\).resolve\(\)) Tj ET
+BT /F3 8 Tf 66 300.00 Td (    if base not in resolved.parents and resolved != base:) Tj ET
+BT /F3 8 Tf 66 290.00 Td (        raise ValueError\('Path outside allowed workspace.'\)) Tj ET
+BT /F3 8 Tf 66 280.00 Td (    return str\(resolved\)) Tj ET
+BT /F2 15 Tf 54 254.00 Td (2. Logical Flaws & Performance Bottlenecks) Tj ET
+BT /F2 12 Tf 54 225.00 Td ([HIGH] Cleanup is not guaranteed for outputs or partial files) Tj ET
+BT /F1 10 Tf 54 205.00 Td (Inputs are cleaned after success/failure, but partial output files are not consistently deleted) Tj ET
+BT /F1 10 Tf 54 191.00 Td (  on failure. If Python crashes mid-write, partial files remain until periodic cleanup. If Node) Tj ET
+BT /F1 10 Tf 54 177.00 Td (  crashes, cleanup only happens after restart and after the interval starts.) Tj ET
+BT /F1 8 Tf 500 30 Td (Page 4) Tj ET
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 12 0 R >>
+endobj
+14 0 obj
+<< /Length 4244 >>
+stream
+BT /F3 8 Tf 66 738.00 Td (async function withJobCleanup\(inputs, outputs, fn\) {) Tj ET
+BT /F3 8 Tf 66 728.00 Td (  try {) Tj ET
+BT /F3 8 Tf 66 718.00 Td (    return await fn\(\);) Tj ET
+BT /F3 8 Tf 66 708.00 Td (  } catch \(err\) {) Tj ET
+BT /F3 8 Tf 66 698.00 Td (    cleanUpFiles\([...inputs, ...outputs]\);) Tj ET
+BT /F3 8 Tf 66 688.00 Td (    throw err;) Tj ET
+BT /F3 8 Tf 66 678.00 Td (  } finally {) Tj ET
+BT /F3 8 Tf 66 668.00 Td (    cleanUpFiles\(inputs\);) Tj ET
+BT /F3 8 Tf 66 658.00 Td (  }) Tj ET
+BT /F3 8 Tf 66 648.00 Td (}) Tj ET
+BT /F1 10 Tf 54 630.00 Td (Recommended structure: create a per-job directory with uploads and outputs subdirectories, then) Tj ET
+BT /F1 10 Tf 54 616.00 Td (  delete the whole job directory in finally. That is safer than tracking individual temp files.) Tj ET
+BT /F2 12 Tf 54 592.00 Td ([HIGH] pdf2jpg loads all rendered pages into memory) Tj ET
+BT /F1 10 Tf 54 572.00 Td (Affected file: python-engine/modules/image_convert.py. convert_from_path returns a list of all) Tj ET
+BT /F1 10 Tf 54 558.00 Td (  page images before zipping begins, causing memory spikes on large PDFs.) Tj ET
+BT /F3 8 Tf 66 535.00 Td (def pdf_to_jpg\(file_path, output_dir, poppler_path=None\):) Tj ET
+BT /F3 8 Tf 66 525.00 Td (    reader = assert_pdf_limits\(file_path\)) Tj ET
+BT /F3 8 Tf 66 515.00 Td (    os.makedirs\(output_dir, exist_ok=True\)) Tj ET
+BT /F3 8 Tf 66 505.00 Td (    zip_path = os.path.join\(output_dir, f"{safe_base\(file_path\)}_images.zip"\)) Tj ET
+BT /F3 8 Tf 66 495.00 Td () Tj ET
+BT /F3 8 Tf 66 485.00 Td (    with zipfile.ZipFile\(zip_path, 'w', zipfile.ZIP_DEFLATED\) as zip_file:) Tj ET
+BT /F3 8 Tf 66 475.00 Td (        for page_no in range\(1, min\(len\(reader.pages\), 100\) + 1\):) Tj ET
+BT /F3 8 Tf 66 465.00 Td (            pages = convert_from_path\(file_path, dpi=120, first_page=page_no, last_page=page_no, thread_count=1\)) Tj ET
+BT /F3 8 Tf 66 455.00 Td (            img_path = os.path.join\(output_dir, f"page_{page_no}.jpg"\)) Tj ET
+BT /F3 8 Tf 66 445.00 Td (            pages[0].save\(img_path, 'JPEG', quality=82, optimize=True\)) Tj ET
+BT /F3 8 Tf 66 435.00 Td (            zip_file.write\(img_path, os.path.basename\(img_path\)\)) Tj ET
+BT /F3 8 Tf 66 425.00 Td (            os.remove\(img_path\)) Tj ET
+BT /F3 8 Tf 66 415.00 Td (    return zip_path) Tj ET
+BT /F2 12 Tf 54 393.00 Td ([MEDIUM] Rate limiting is request-count based, not cost based) Tj ET
+BT /F1 10 Tf 54 373.00 Td (Affected file: backend-api/middlewares/rateLimiter.js. 100 requests/hour allows 100 x 50 MB) Tj ET
+BT /F1 10 Tf 54 359.00 Td (  uploads, or 50 images x 50 MB for jpg2pdf. That is too generous for CPU-heavy processing.) Tj ET
+BT /F3 8 Tf 66 336.00 Td (const heavyLimiter = rateLimit\({) Tj ET
+BT /F3 8 Tf 66 326.00 Td (  windowMs: 60 * 60 * 1000,) Tj ET
+BT /F3 8 Tf 66 316.00 Td (  max: 10,) Tj ET
+BT /F3 8 Tf 66 306.00 Td (  standardHeaders: true,) Tj ET
+BT /F3 8 Tf 66 296.00 Td (  legacyHeaders: false,) Tj ET
+BT /F3 8 Tf 66 286.00 Td (  message: { success: false, error: 'Heavy conversion limit reached.' },) Tj ET
+BT /F3 8 Tf 66 276.00 Td (}\);) Tj ET
+BT /F3 8 Tf 66 266.00 Td () Tj ET
+BT /F3 8 Tf 66 256.00 Td (router.post\('/pdf2jpg', heavyLimiter, upload.single\('file'\), pdfController.pdfToJpg\);) Tj ET
+BT /F2 12 Tf 54 234.00 Td ([MEDIUM] Office conversion can become unsafe on Windows) Tj ET
+BT /F1 10 Tf 54 214.00 Td (Docker uses Linux, so COM should not run there. If deployed on Windows, Word/Excel/PowerPoint) Tj ET
+BT /F1 10 Tf 54 200.00 Td (  automation opens attacker-supplied documents and can trigger macros, external links,) Tj ET
+BT /F1 10 Tf 54 186.00 Td (  protected-view quirks, or COM hangs.) Tj ET
+BT /F3 8 Tf 66 163.00 Td (ENABLE_COM = os.getenv\('ENABLE_OFFICE_COM'\) == 'true') Tj ET
+BT /F3 8 Tf 66 153.00 Td () Tj ET
+BT /F3 8 Tf 66 143.00 Td (def word_to_pdf\(file_path, output_path\):) Tj ET
+BT /F3 8 Tf 66 133.00 Td (    if ENABLE_COM and COM_AVAILABLE:) Tj ET
+BT /F3 8 Tf 66 123.00 Td (        return convert_word_to_pdf_com\(file_path, output_path\)) Tj ET
+BT /F3 8 Tf 66 113.00 Td (    return word_to_pdf_portable\(file_path, output_path\)) Tj ET
+BT /F2 15 Tf 54 87.00 Td (3. Competitive Edge & Enterprise Improvements) Tj ET
+BT /F1 8 Tf 500 30 Td (Page 5) Tj ET
+endstream
+endobj
+15 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 14 0 R >>
+endobj
+16 0 obj
+<< /Length 3399 >>
+stream
+BT /F1 10 Tf 54 738.00 Td (- Job queue instead of direct request processing: use Redis + BullMQ or RabbitMQ. The API accepts) Tj ET
+BT /F1 10 Tf 54 724.00 Td (  upload, creates a job, and a worker processes with strict concurrency limits.) Tj ET
+BT /F1 10 Tf 54 707.00 Td (- WebSockets or Server-Sent Events for live progress: Python emits structured progress JSON, Node) Tj ET
+BT /F1 10 Tf 54 693.00 Td (  forwards status to the frontend.) Tj ET
+BT /F1 10 Tf 54 676.00 Td (- Content-addressed caching: hash input + options and reuse outputs briefly for repeated) Tj ET
+BT /F1 10 Tf 54 662.00 Td (  conversions.) Tj ET
+BT /F1 10 Tf 54 645.00 Td (- Sandboxed processing workers: run Python under a low-privilege user with memory limits,) Tj ET
+BT /F1 10 Tf 54 631.00 Td (  read-only source filesystem, and per-job temp directories.) Tj ET
+BT /F1 10 Tf 54 614.00 Td (- OCR/searchable PDF support: add Tesseract or OCRmyPDF for scanned PDF to searchable PDF, PDF to) Tj ET
+BT /F1 10 Tf 54 600.00 Td (  Word with OCR fallback, and language selection.) Tj ET
+BT /F2 15 Tf 54 575.00 Td (4. Frontend UX/UI Logic Improvements) Tj ET
+BT /F1 10 Tf 54 550.00 Td (- Add client-side file size and file-count validation that mirrors backend limits before upload.) Tj ET
+BT /F1 10 Tf 54 533.00 Td (- Show per-file validation errors instead of silently ignoring invalid extensions.) Tj ET
+BT /F1 10 Tf 54 516.00 Td (- Use Axios upload progress to show real upload percentage.) Tj ET
+BT /F1 10 Tf 54 499.00 Td (- Add chunked/resumable uploads for massive files using tus.io or S3/R2 multipart upload.) Tj ET
+BT /F1 10 Tf 54 482.00 Td (- Replace static download URLs with expiring download tokens and show an expiry countdown.) Tj ET
+BT /F1 10 Tf 54 465.00 Td (- Display estimated processing cost: detected pages, output type, and compression estimate.) Tj ET
+BT /F3 8 Tf 66 445.00 Td (await api.post\(tool.endpoint, formData, {) Tj ET
+BT /F3 8 Tf 66 435.00 Td (  onUploadProgress: e => {) Tj ET
+BT /F3 8 Tf 66 425.00 Td (    const percent = Math.round\(\(e.loaded / e.total\) * 100\);) Tj ET
+BT /F3 8 Tf 66 415.00 Td (    setStatusText\(`Uploading ${percent}%`\);) Tj ET
+BT /F3 8 Tf 66 405.00 Td (  },) Tj ET
+BT /F3 8 Tf 66 395.00 Td (}\);) Tj ET
+BT /F2 15 Tf 54 369.00 Td (Priority Remediation Plan) Tj ET
+BT /F1 10 Tf 54 344.00 Td (- 1. Add server-side MIME and magic-byte validation.) Tj ET
+BT /F1 10 Tf 54 327.00 Td (- 2. Add Python page, image, and archive expansion limits.) Tj ET
+BT /F1 10 Tf 54 310.00 Td (- 3. Add child-process timeout and concurrency queue.) Tj ET
+BT /F1 10 Tf 54 293.00 Td (- 4. Replace /processed static serving with expiring tokenized downloads.) Tj ET
+BT /F1 10 Tf 54 276.00 Td (- 5. Move each conversion into an isolated job directory and delete the directory in finally.) Tj ET
+BT /F1 10 Tf 54 259.00 Td (- 6. Add heavy-route rate limits based on conversion cost.) Tj ET
+BT /F1 10 Tf 54 242.00 Td (- 7. Add upload progress and frontend validation parity.) Tj ET
+BT /F1 10 Tf 54 225.00 Td (Conclusion: The platform has a solid foundation, but the processing boundary needs to be treated) Tj ET
+BT /F1 10 Tf 54 211.00 Td (  like hostile input execution. Once Python jobs are wrapped with validation, quotas, isolation,) Tj ET
+BT /F1 10 Tf 54 197.00 Td (  and lifecycle control, it becomes much closer to an enterprise-grade document utility.) Tj ET
+BT /F1 8 Tf 500 30 Td (Page 6) Tj ET
+endstream
+endobj
+17 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 16 0 R >>
+endobj
+xref
+0 18
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000149 00000 n 
+0000000219 00000 n 
+0000000294 00000 n 
+0000000362 00000 n 
+0000004136 00000 n 
+0000004282 00000 n 
+0000006986 00000 n 
+0000007132 00000 n 
+0000011684 00000 n 
+0000011832 00000 n 
+0000015404 00000 n 
+0000015552 00000 n 
+0000019849 00000 n 
+0000019997 00000 n 
+0000023449 00000 n 
+trailer
+<< /Size 18 /Root 1 0 R >>
+startxref
+23597
+%%EOF

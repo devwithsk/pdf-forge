@@ -4,6 +4,11 @@ const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const Analytics = require('../models/Analytics');
 const ErrorLog = require('../models/ErrorLog');
+const PQueueModule = require('p-queue');
+const PQueue = PQueueModule.default || PQueueModule;
+
+// Initialize queue with specified concurrency limit
+const queue = new PQueue({ concurrency: Number(process.env.PYTHON_CONCURRENCY || 2) });
 
 // Resolve the Python executable dynamically
 const getPythonPath = () => {
@@ -16,8 +21,8 @@ const getPythonPath = () => {
 };
 
 // Spawn Python process and communicate via standard input/output
-const executePython = (scriptName, payload) => {
-  return new Promise((resolve, reject) => {
+const executePython = (scriptName, payload, timeoutMs = 120000) => {
+  return queue.add(() => new Promise((resolve, reject) => {
     const pythonPath = getPythonPath();
     const scriptPath = path.join(__dirname, '../../python-engine/modules', scriptName);
     
@@ -25,23 +30,47 @@ const executePython = (scriptName, payload) => {
       return reject(new Error(`Python script not found: ${scriptPath}`));
     }
     
-    const pyProcess = spawn(pythonPath, [scriptPath]);
+    const pyProcess = spawn(pythonPath, [scriptPath], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    });
+    
+    const timer = setTimeout(() => {
+      pyProcess.kill('SIGKILL');
+      reject(new Error('Processing timed out. Try a smaller file.'));
+    }, timeoutMs);
     
     let stdout = '';
     let stderr = '';
+    let killedDueToSize = false;
     
-    pyProcess.stdin.write(JSON.stringify(payload));
-    pyProcess.stdin.end();
+    pyProcess.on('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
     
     pyProcess.stdout.on('data', (data) => {
       stdout += data.toString();
+      if (stdout.length > 1048576) {
+        killedDueToSize = true;
+        pyProcess.kill('SIGKILL');
+      }
     });
     
     pyProcess.stderr.on('data', (data) => {
       stderr += data.toString();
+      if (stderr.length > 1048576) {
+        killedDueToSize = true;
+        pyProcess.kill('SIGKILL');
+      }
     });
     
     pyProcess.on('close', (code) => {
+      clearTimeout(timer);
+      if (killedDueToSize) {
+        return reject(new Error('Python processing exceeded output limits.'));
+      }
+      
       if (code !== 0) {
         return reject(new Error(`Python script error (code ${code}): ${stderr || 'Unknown script crash'}`));
       }
@@ -56,12 +85,15 @@ const executePython = (scriptName, payload) => {
         reject(new Error(`Invalid JSON output from Python script: ${stdout.substring(0, 500)}. Error: ${err.message}`));
       }
     });
-  });
+    
+    pyProcess.stdin.write(JSON.stringify(payload));
+    pyProcess.stdin.end();
+  }));
 };
 
 // Spawn Python process with command-line arguments and communicate via stdout/stderr
-const spawnPythonArgs = (scriptName, args) => {
-  return new Promise((resolve, reject) => {
+const spawnPythonArgs = (scriptName, args, timeoutMs = 120000) => {
+  return queue.add(() => new Promise((resolve, reject) => {
     const pythonPath = getPythonPath();
     const scriptPath = path.join(__dirname, '../../python-engine/modules', scriptName);
     
@@ -70,20 +102,47 @@ const spawnPythonArgs = (scriptName, args) => {
     }
     
     console.log(`[spawnPythonArgs] Running: ${pythonPath} ${scriptPath} ${args.join(' ')}`);
-    const pyProcess = spawn(pythonPath, [scriptPath, ...args]);
+    const pyProcess = spawn(pythonPath, [scriptPath, ...args], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    });
+    
+    const timer = setTimeout(() => {
+      pyProcess.kill('SIGKILL');
+      reject(new Error('Processing timed out. Try a smaller file.'));
+    }, timeoutMs);
     
     let stdout = '';
     let stderr = '';
+    let killedDueToSize = false;
+    
+    pyProcess.on('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
     
     pyProcess.stdout.on('data', (data) => {
       stdout += data.toString();
+      if (stdout.length > 1048576) {
+        killedDueToSize = true;
+        pyProcess.kill('SIGKILL');
+      }
     });
     
     pyProcess.stderr.on('data', (data) => {
       stderr += data.toString();
+      if (stderr.length > 1048576) {
+        killedDueToSize = true;
+        pyProcess.kill('SIGKILL');
+      }
     });
     
     pyProcess.on('close', (code) => {
+      clearTimeout(timer);
+      if (killedDueToSize) {
+        return reject(new Error('Python processing exceeded output limits.'));
+      }
+      
       if (code !== 0) {
         return reject(new Error(`Python script error (code ${code}): ${stderr || 'Unknown script crash'}`));
       }
@@ -98,7 +157,7 @@ const spawnPythonArgs = (scriptName, args) => {
         reject(new Error(`Invalid JSON output from Python script: ${stdout.substring(0, 500)}. Error: ${err.message}`));
       }
     });
-  });
+  }));
 };
 
 // Clean user-facing error messages by removing technical prefixes and absolute file path names

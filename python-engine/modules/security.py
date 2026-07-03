@@ -3,16 +3,16 @@ import sys
 import json
 import tempfile
 from pypdf import PdfReader, PdfWriter
+from limits import assert_pdf_limits
 import pikepdf
 from reportlab.pdfgen import canvas
 from reportlab.lib.colors import HexColor
 
 def protect_pdf(file_path, output_path, password):
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"File not found: {file_path}")
     if not password:
         raise ValueError("Password cannot be empty.")
         
+    assert_pdf_limits(file_path)
     # Use pikepdf for strong encryption support
     with pikepdf.open(file_path) as pdf:
         enc = pikepdf.Encryption(user=password, owner=password, allow=pikepdf.Permissions(accessibility=True))
@@ -27,10 +27,14 @@ def unlock_pdf(file_path, output_path, password):
     try:
         # Try pikepdf decryption
         with pikepdf.open(file_path, password=password) as pdf:
+            if len(pdf.pages) > 100:
+                raise ValueError("PDF exceeds 100 page limit.")
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
             pdf.save(output_path)
         return output_path
     except Exception as pikepdf_err:
+        if "exceeds 100 page limit" in str(pikepdf_err):
+            raise pikepdf_err
         # Try pypdf fallback
         try:
             reader = PdfReader(file_path)
@@ -38,6 +42,8 @@ def unlock_pdf(file_path, output_path, password):
                 decrypt_success = reader.decrypt(password)
                 if decrypt_success == 0:
                     raise ValueError("Incorrect password.")
+            if len(reader.pages) > 100:
+                raise ValueError("PDF exceeds 100 page limit.")
             writer = PdfWriter()
             for page in reader.pages:
                 writer.add_page(page)
@@ -73,10 +79,7 @@ def create_watermark_pdf(text, width, height, font_name="Helvetica", font_size=4
     return temp_path
 
 def watermark_pdf(file_path, output_path, text, font_size=40, opacity=0.3, color="#888888"):
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"File not found: {file_path}")
-        
-    reader = PdfReader(file_path)
+    reader = assert_pdf_limits(file_path)
     writer = PdfWriter()
     
     # Store dynamic watermark paths to clean up

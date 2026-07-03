@@ -3,6 +3,7 @@ import sys
 import json
 from pdf2docx import Converter
 from reportlab.lib.pagesizes import letter, landscape
+from limits import assert_pdf_limits
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
@@ -56,6 +57,8 @@ def word_to_pdf_portable(file_path, output_path):
     import docx
     
     doc = docx.Document(file_path)
+    if len(doc.paragraphs) > 1000:
+        raise ValueError("Word document exceeds 1000 paragraph limit.")
     doc_template = SimpleDocTemplate(
         output_path, 
         pagesize=letter,
@@ -132,6 +135,8 @@ def excel_to_pdf_portable(file_path, output_path):
     import openpyxl
     
     wb = openpyxl.load_workbook(file_path, data_only=True)
+    if len(wb.sheetnames) > 20:
+        raise ValueError("Excel file exceeds 20 sheet limit.")
     doc_template = SimpleDocTemplate(
         output_path, 
         pagesize=landscape(letter),
@@ -226,9 +231,7 @@ def excel_to_pdf(file_path, output_path):
         return output_path
 
 def pdf_to_word(file_path, output_path):
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"File not found: {file_path}")
-        
+    assert_pdf_limits(file_path)
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     cv = Converter(file_path)
     # Convert all pages
@@ -237,13 +240,10 @@ def pdf_to_word(file_path, output_path):
     return output_path
 
 def pdf_to_excel(file_path, output_path):
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"File not found: {file_path}")
     import openpyxl
-    from pypdf import PdfReader
     import re
     
-    reader = PdfReader(file_path)
+    reader = assert_pdf_limits(file_path)
     wb = openpyxl.Workbook()
     
     # Remove default sheet
@@ -271,13 +271,10 @@ def pdf_to_excel(file_path, output_path):
     return output_path
 
 def pdf_to_ppt(file_path, output_path):
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"File not found: {file_path}")
     from pptx import Presentation
     from pptx.util import Inches, Pt
-    from pypdf import PdfReader
     
-    reader = PdfReader(file_path)
+    reader = assert_pdf_limits(file_path)
     prs = Presentation()
     blank_layout = prs.slide_layouts[6] # Blank slide
     
@@ -335,6 +332,8 @@ def ppt_to_pdf_portable(file_path, output_path):
     from pptx import Presentation
     
     prs = Presentation(file_path)
+    if len(prs.slides) > 100:
+        raise ValueError("PowerPoint presentation exceeds 100 slide limit.")
     doc_template = SimpleDocTemplate(
         output_path, 
         pagesize=landscape(letter),

@@ -7,18 +7,42 @@ from PIL import Image
 from pdf2image import convert_from_path
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4, letter
+from limits import assert_pdf_limits, MAX_IMAGE_PIXELS
+
+Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 
 def pdf_to_jpg(file_path, output_dir, poppler_path=None):
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"File not found: {file_path}")
+    reader = assert_pdf_limits(file_path)
+    os.makedirs(output_dir, exist_ok=True)
+    
+    base_name = os.path.splitext(os.path.basename(file_path))[0]
+    zip_path = os.path.join(output_dir, f"{base_name}_images.zip")
+    
+    kwargs = {}
+    if poppler_path and os.path.exists(poppler_path):
+        kwargs["poppler_path"] = poppler_path
         
+    total_pages = len(reader.pages)
+    
     try:
-        # Convert PDF pages to PIL images
-        kwargs = {}
-        if poppler_path and os.path.exists(poppler_path):
-            kwargs["poppler_path"] = poppler_path
-            
-        pages = convert_from_path(file_path, dpi=150, **kwargs)
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            for page_no in range(1, total_pages + 1):
+                # Convert pages one by one to prevent loading everything into RAM
+                pages = convert_from_path(
+                    file_path, 
+                    dpi=120, 
+                    first_page=page_no, 
+                    last_page=page_no, 
+                    thread_count=1, 
+                    **kwargs
+                )
+                if not pages:
+                    continue
+                img_name = f"{base_name}_page_{page_no}.jpg"
+                img_path = os.path.join(output_dir, img_name)
+                pages[0].save(img_path, 'JPEG', quality=82, optimize=True)
+                zip_file.write(img_path, img_name)
+                os.remove(img_path)
     except Exception as e:
         # Provide a descriptive error message indicating poppler requirements
         raise RuntimeError(
@@ -26,19 +50,6 @@ def pdf_to_jpg(file_path, output_dir, poppler_path=None):
             f"Original Error: {str(e)}"
         )
         
-    base_name = os.path.splitext(os.path.basename(file_path))[0]
-    zip_path = os.path.join(output_dir, f"{base_name}_images.zip")
-    
-    os.makedirs(output_dir, exist_ok=True)
-    
-    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        for idx, page in enumerate(pages):
-            img_name = f"{base_name}_page_{idx+1}.jpg"
-            img_path = os.path.join(output_dir, img_name)
-            page.save(img_path, 'JPEG', quality=85)
-            zip_file.write(img_path, img_name)
-            os.remove(img_path) # remove temp file
-            
     return zip_path
 
 def create_pdf_from_images(image_paths, output_pdf_path, paper_size, orientation):
@@ -106,6 +117,8 @@ def jpg_to_pdf(image_paths, output_path, paper_size='A4', orientation='Portrait'
     try:
         if not image_paths:
             raise ValueError("At least one image is required for PDF conversion.")
+        if len(image_paths) > 100:
+            raise ValueError("Exceeds maximum limit of 100 images.")
             
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         
