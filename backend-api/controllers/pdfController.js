@@ -295,11 +295,25 @@ exports.mergePDF = async (req, res) => {
   const outputFileName = `merged-${uuidv4()}.pdf`;
   const outputPath = path.join(jobDir, outputFileName);
   
+  let settings = {};
+  if (req.body.settings) {
+    try {
+      settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings;
+    } catch (e) {
+      console.error('Failed to parse settings:', e);
+    }
+  }
+  
+  const addBlankPage = settings.addBlankPage === true;
+  const compress = settings.compress === true;
+  
   try {
     const resultPath = await executePython('basic_manipulation.py', {
       action: 'merge',
       files: inputPaths,
-      output: outputPath
+      output: outputPath,
+      add_blank_page: addBlankPage,
+      compress: compress
     });
     
     await logAnalytics('merge', inputPaths.length, totalSize, 'success', startTime);
@@ -531,11 +545,27 @@ exports.pdfToJpg = async (req, res) => {
   const fileSize = req.file.size;
   const { jobDir, inputPaths } = initJob(req);
   
+  let settings = {};
+  if (req.body.settings) {
+    try {
+      settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings;
+    } catch (e) {
+      console.error('Failed to parse settings:', e);
+    }
+  }
+  
+  const format = settings.format || 'jpg';
+  const dpi = parseInt(settings.dpi) || 120;
+  const quality = parseInt(settings.quality) || 82;
+  
   try {
     const resultPath = await executePython('image_convert.py', {
       action: 'pdf2jpg',
       file: inputPaths[0],
-      output_dir: jobDir
+      output_dir: jobDir,
+      format: format,
+      dpi: dpi,
+      quality: quality
     });
     
     const outputFileName = path.basename(resultPath);
@@ -622,11 +652,21 @@ exports.wordToPdf = async (req, res) => {
   const outputFileName = `docx-${uuidv4()}.pdf`;
   const outputPath = path.join(jobDir, outputFileName);
   
+  let settings = {};
+  if (req.body.settings) {
+    try {
+      settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings;
+    } catch (e) {
+      console.error('Failed to parse settings:', e);
+    }
+  }
+  
   try {
     const resultPath = await executePython('doc_convert.py', {
       action: 'word2pdf',
       file: inputPaths[0],
-      output: outputPath
+      output: outputPath,
+      settings: settings
     });
     
     await logAnalytics('word2pdf', 1, fileSize, 'success', startTime);
@@ -658,11 +698,21 @@ exports.excelToPdf = async (req, res) => {
   const outputFileName = `xlsx-${uuidv4()}.pdf`;
   const outputPath = path.join(jobDir, outputFileName);
   
+  let settings = {};
+  if (req.body.settings) {
+    try {
+      settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings;
+    } catch (e) {
+      console.error('Failed to parse settings:', e);
+    }
+  }
+  
   try {
     const resultPath = await executePython('doc_convert.py', {
       action: 'excel2pdf',
       file: inputPaths[0],
-      output: outputPath
+      output: outputPath,
+      settings: settings
     });
     
     await logAnalytics('excel2pdf', 1, fileSize, 'success', startTime);
@@ -694,11 +744,21 @@ exports.pdfToWord = async (req, res) => {
   const outputFileName = `converted-${uuidv4()}.docx`;
   const outputPath = path.join(jobDir, outputFileName);
   
+  let settings = {};
+  if (req.body.settings) {
+    try {
+      settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings;
+    } catch (e) {
+      console.error('Failed to parse settings:', e);
+    }
+  }
+  
   try {
     const resultPath = await executePython('doc_convert.py', {
       action: 'pdf2word',
       file: inputPaths[0],
-      output: outputPath
+      output: outputPath,
+      settings: settings
     });
     
     await logAnalytics('pdf2word', 1, fileSize, 'success', startTime);
@@ -730,11 +790,21 @@ exports.pdfToExcel = async (req, res) => {
   const outputFileName = `excel-${uuidv4()}.xlsx`;
   const outputPath = path.join(jobDir, outputFileName);
   
+  let settings = {};
+  if (req.body.settings) {
+    try {
+      settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings;
+    } catch (e) {
+      console.error('Failed to parse settings:', e);
+    }
+  }
+  
   try {
     const resultPath = await executePython('doc_convert.py', {
       action: 'pdf2excel',
       file: inputPaths[0],
-      output: outputPath
+      output: outputPath,
+      settings: settings
     });
     
     await logAnalytics('pdf2excel', 1, fileSize, 'success', startTime);
@@ -766,11 +836,21 @@ exports.pdfToPowerPoint = async (req, res) => {
   const outputFileName = `presentation-${uuidv4()}.pptx`;
   const outputPath = path.join(jobDir, outputFileName);
   
+  let settings = {};
+  if (req.body.settings) {
+    try {
+      settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings;
+    } catch (e) {
+      console.error('Failed to parse settings:', e);
+    }
+  }
+  
   try {
     const resultPath = await executePython('doc_convert.py', {
       action: 'pdf2ppt',
       file: inputPaths[0],
-      output: outputPath
+      output: outputPath,
+      settings: settings
     });
     
     await logAnalytics('pdf2ppt', 1, fileSize, 'success', startTime);
@@ -802,11 +882,21 @@ exports.powerpointToPdf = async (req, res) => {
   const outputFileName = `presentation-${uuidv4()}.pdf`;
   const outputPath = path.join(jobDir, outputFileName);
   
+  let settings = {};
+  if (req.body.settings) {
+    try {
+      settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings;
+    } catch (e) {
+      console.error('Failed to parse settings:', e);
+    }
+  }
+  
   try {
     const resultPath = await executePython('doc_convert.py', {
       action: 'ppt2pdf',
       file: inputPaths[0],
-      output: outputPath
+      output: outputPath,
+      settings: settings
     });
     
     await logAnalytics('ppt2pdf', 1, fileSize, 'success', startTime);
@@ -838,11 +928,21 @@ exports.htmlToPdf = async (req, res) => {
   const outputFileName = `html-${uuidv4()}.pdf`;
   const outputPath = path.join(jobDir, outputFileName);
   
+  let settings = {};
+  if (req.body.settings) {
+    try {
+      settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings;
+    } catch (e) {
+      console.error('Failed to parse settings:', e);
+    }
+  }
+  
   try {
     const resultPath = await executePython('doc_convert.py', {
       action: 'html2pdf',
       file: inputPaths[0],
-      output: outputPath
+      output: outputPath,
+      settings: settings
     });
     
     await logAnalytics('html2pdf', 1, fileSize, 'success', startTime);

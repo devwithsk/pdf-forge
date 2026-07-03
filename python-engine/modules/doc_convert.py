@@ -18,7 +18,7 @@ if sys.platform == "win32":
     except ImportError:
         pass
 
-def convert_word_to_pdf_com(file_path, output_path):
+def convert_word_to_pdf_com(file_path, output_path, orientation='auto'):
     """Converts DOCX to PDF using Word COM automation on Windows."""
     # Ensure absolute paths
     abs_input = os.path.abspath(file_path)
@@ -30,13 +30,17 @@ def convert_word_to_pdf_com(file_path, output_path):
     word.Visible = False
     try:
         doc = word.Documents.Open(abs_input)
+        if orientation.lower() == 'landscape':
+            doc.PageSetup.Orientation = 1
+        elif orientation.lower() == 'portrait':
+            doc.PageSetup.Orientation = 0
         # 17 represents wdFormatPDF
         doc.SaveAs(abs_output, FileFormat=17)
         doc.Close()
     finally:
         word.Quit()
 
-def convert_excel_to_pdf_com(file_path, output_path):
+def convert_excel_to_pdf_com(file_path, output_path, orientation='auto'):
     """Converts XLSX to PDF using Excel COM automation on Windows."""
     abs_input = os.path.abspath(file_path)
     abs_output = os.path.abspath(output_path)
@@ -46,23 +50,37 @@ def convert_excel_to_pdf_com(file_path, output_path):
     excel.Visible = False
     try:
         wb = excel.Workbooks.Open(abs_input)
+        for sheet in wb.Sheets:
+            if orientation.lower() == 'landscape':
+                sheet.PageSetup.Orientation = 2
+            elif orientation.lower() == 'portrait':
+                sheet.PageSetup.Orientation = 1
         # Type=0 represents xlTypePDF
         wb.ExportAsFixedFormat(0, abs_output)
         wb.Close(False)
     finally:
         excel.Quit()
 
-def word_to_pdf_portable(file_path, output_path):
+def word_to_pdf_portable(file_path, output_path, orientation='auto', layout_mode='fit'):
     """Fallback cross-platform docx to pdf renderer using python-docx and reportlab."""
     import docx
     
     doc = docx.Document(file_path)
     if len(doc.paragraphs) > 1000:
         raise ValueError("Word document exceeds 1000 paragraph limit.")
+        
+    pagesize = letter
+    if orientation.lower() == 'landscape':
+        pagesize = landscape(letter)
+        
+    margin = 40
+    if layout_mode.lower() == 'fit':
+        margin = 30
+        
     doc_template = SimpleDocTemplate(
         output_path, 
-        pagesize=letter,
-        rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40
+        pagesize=pagesize,
+        rightMargin=margin, leftMargin=margin, topMargin=margin, bottomMargin=margin
     )
     
     styles = getSampleStyleSheet()
@@ -130,17 +148,26 @@ def word_to_pdf_portable(file_path, output_path):
         
     doc_template.build(story)
 
-def excel_to_pdf_portable(file_path, output_path):
+def excel_to_pdf_portable(file_path, output_path, orientation='auto', layout_mode='fit'):
     """Fallback cross-platform xlsx to pdf renderer using openpyxl and reportlab."""
     import openpyxl
     
     wb = openpyxl.load_workbook(file_path, data_only=True)
     if len(wb.sheetnames) > 20:
         raise ValueError("Excel file exceeds 20 sheet limit.")
+        
+    pagesize = landscape(letter)
+    if orientation.lower() == 'portrait':
+        pagesize = letter
+        
+    margin = 30
+    if layout_mode.lower() == 'fit':
+        margin = 15
+        
     doc_template = SimpleDocTemplate(
         output_path, 
-        pagesize=landscape(letter),
-        rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30
+        pagesize=pagesize,
+        rightMargin=margin, leftMargin=margin, topMargin=margin, bottomMargin=margin
     )
     
     styles = getSampleStyleSheet()
@@ -205,32 +232,32 @@ def excel_to_pdf_portable(file_path, output_path):
         
     doc_template.build(story)
 
-def word_to_pdf(file_path, output_path):
+def word_to_pdf(file_path, output_path, orientation='auto', layout_mode='fit'):
     if COM_AVAILABLE:
         try:
-            convert_word_to_pdf_com(file_path, output_path)
+            convert_word_to_pdf_com(file_path, output_path, orientation=orientation)
             return output_path
         except Exception as com_err:
             # Fall back to python-docx + reportlab
-            word_to_pdf_portable(file_path, output_path)
+            word_to_pdf_portable(file_path, output_path, orientation=orientation, layout_mode=layout_mode)
             return output_path
     else:
-        word_to_pdf_portable(file_path, output_path)
+        word_to_pdf_portable(file_path, output_path, orientation=orientation, layout_mode=layout_mode)
         return output_path
 
-def excel_to_pdf(file_path, output_path):
+def excel_to_pdf(file_path, output_path, orientation='auto', layout_mode='fit'):
     if COM_AVAILABLE:
         try:
-            convert_excel_to_pdf_com(file_path, output_path)
+            convert_excel_to_pdf_com(file_path, output_path, orientation=orientation)
             return output_path
         except Exception as com_err:
-            excel_to_pdf_portable(file_path, output_path)
+            excel_to_pdf_portable(file_path, output_path, orientation=orientation, layout_mode=layout_mode)
             return output_path
     else:
-        excel_to_pdf_portable(file_path, output_path)
+        excel_to_pdf_portable(file_path, output_path, orientation=orientation, layout_mode=layout_mode)
         return output_path
 
-def pdf_to_word(file_path, output_path):
+def pdf_to_word(file_path, output_path, mode='flowing', ocr=False):
     assert_pdf_limits(file_path)
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     cv = Converter(file_path)
@@ -239,7 +266,7 @@ def pdf_to_word(file_path, output_path):
     cv.close()
     return output_path
 
-def pdf_to_excel(file_path, output_path):
+def pdf_to_excel(file_path, output_path, mode='auto', single_sheet=False):
     import openpyxl
     import re
     
@@ -250,13 +277,20 @@ def pdf_to_excel(file_path, output_path):
     default_sheet = wb.active
     wb.remove(default_sheet)
     
+    ws = None
+    if single_sheet:
+        ws = wb.create_sheet(title="Extracted Data")
+        
+    row_num = 1
     for idx, page in enumerate(reader.pages):
-        ws = wb.create_sheet(title=f"Page {idx+1}")
+        if not single_sheet:
+            ws = wb.create_sheet(title=f"Page {idx+1}")
+            row_num = 1
+            
         text = page.extract_text()
         if not text:
             continue
         
-        row_num = 1
         for line in text.split('\n'):
             line = line.strip()
             if not line:
@@ -270,12 +304,21 @@ def pdf_to_excel(file_path, output_path):
     wb.save(output_path)
     return output_path
 
-def pdf_to_ppt(file_path, output_path):
+def pdf_to_ppt(file_path, output_path, slide_size='16:9', vector_mode=False):
     from pptx import Presentation
     from pptx.util import Inches, Pt
     
     reader = assert_pdf_limits(file_path)
     prs = Presentation()
+    
+    # Set slide size
+    if slide_size == '16:9':
+        prs.slide_width = Inches(13.33)
+        prs.slide_height = Inches(7.5)
+    else:
+        prs.slide_width = Inches(10)
+        prs.slide_height = Inches(7.5)
+        
     blank_layout = prs.slide_layouts[6] # Blank slide
     
     for idx, page in enumerate(reader.pages):
@@ -287,8 +330,8 @@ def pdf_to_ppt(file_path, output_path):
         # Sizing box
         left = Inches(0.75)
         top = Inches(0.75)
-        width = Inches(8.5)
-        height = Inches(6.0)
+        width = prs.slide_width - Inches(1.5)
+        height = prs.slide_height - Inches(1.5)
         
         txBox = slide.shapes.add_textbox(left, top, width, height)
         tf = txBox.text_frame
@@ -328,16 +371,25 @@ def convert_ppt_to_pdf_com(file_path, output_path):
     finally:
         powerpoint.Quit()
 
-def ppt_to_pdf_portable(file_path, output_path):
+def ppt_to_pdf_portable(file_path, output_path, orientation='auto', layout_mode='fit'):
     from pptx import Presentation
     
     prs = Presentation(file_path)
     if len(prs.slides) > 100:
         raise ValueError("PowerPoint presentation exceeds 100 slide limit.")
+        
+    pagesize = landscape(letter)
+    if orientation.lower() == 'portrait':
+        pagesize = letter
+        
+    margin = 40
+    if layout_mode.lower() == 'fit':
+        margin = 20
+        
     doc_template = SimpleDocTemplate(
         output_path, 
-        pagesize=landscape(letter),
-        rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40
+        pagesize=pagesize,
+        rightMargin=margin, leftMargin=margin, topMargin=margin, bottomMargin=margin
     )
     
     styles = getSampleStyleSheet()
@@ -378,16 +430,16 @@ def ppt_to_pdf_portable(file_path, output_path):
         
     doc_template.build(story)
 
-def ppt_to_pdf(file_path, output_path):
+def ppt_to_pdf(file_path, output_path, orientation='auto', layout_mode='fit'):
     if COM_AVAILABLE:
         try:
             convert_ppt_to_pdf_com(file_path, output_path)
             return output_path
         except Exception:
-            ppt_to_pdf_portable(file_path, output_path)
+            ppt_to_pdf_portable(file_path, output_path, orientation=orientation, layout_mode=layout_mode)
             return output_path
     else:
-        ppt_to_pdf_portable(file_path, output_path)
+        ppt_to_pdf_portable(file_path, output_path, orientation=orientation, layout_mode=layout_mode)
         return output_path
 
 from html.parser import HTMLParser
@@ -430,16 +482,24 @@ class SimpleHTMLParser(HTMLParser):
                 self.story.append(Paragraph(text, self.styles['Normal']))
                 self.story.append(Spacer(1, 6))
 
-def html_to_pdf(file_path, output_path):
+def html_to_pdf(file_path, output_path, orientation='auto', layout_mode='fit'):
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
         html_content = f.read()
         
+    pagesize = letter
+    if orientation.lower() == 'landscape':
+        pagesize = landscape(letter)
+        
+    margin = 40
+    if layout_mode.lower() == 'fit':
+        margin = 25
+        
     doc_template = SimpleDocTemplate(
         output_path, 
-        pagesize=letter,
-        rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40
+        pagesize=pagesize,
+        rightMargin=margin, leftMargin=margin, topMargin=margin, bottomMargin=margin
     )
     
     styles = getSampleStyleSheet()
@@ -454,6 +514,50 @@ def html_to_pdf(file_path, output_path):
 
 def main():
     try:
+        # Check command line arguments first
+        if len(sys.argv) >= 3:
+            action = sys.argv[1]
+            if action in ["word2pdf", "excel2pdf", "ppt2pdf", "html2pdf"]:
+                file_path = sys.argv[2]
+                output = sys.argv[3]
+                orientation = sys.argv[4] if len(sys.argv) > 4 else "auto"
+                layout_mode = sys.argv[5] if len(sys.argv) > 5 else "fit"
+                if action == "word2pdf":
+                    result = word_to_pdf(file_path, output, orientation=orientation, layout_mode=layout_mode)
+                elif action == "excel2pdf":
+                    result = excel_to_pdf(file_path, output, orientation=orientation, layout_mode=layout_mode)
+                elif action == "ppt2pdf":
+                    result = ppt_to_pdf(file_path, output, orientation=orientation, layout_mode=layout_mode)
+                else:
+                    result = html_to_pdf(file_path, output, orientation=orientation, layout_mode=layout_mode)
+                print(json.dumps({"success": True, "output": result}))
+                return
+            elif action == "pdf2word":
+                file_path = sys.argv[2]
+                output = sys.argv[3]
+                mode = sys.argv[4] if len(sys.argv) > 4 else "flowing"
+                ocr = (sys.argv[5].lower() == "true") if len(sys.argv) > 5 else False
+                result = pdf_to_word(file_path, output, mode=mode, ocr=ocr)
+                print(json.dumps({"success": True, "output": result}))
+                return
+            elif action == "pdf2excel":
+                file_path = sys.argv[2]
+                output = sys.argv[3]
+                mode = sys.argv[4] if len(sys.argv) > 4 else "auto"
+                single_sheet = (sys.argv[5].lower() == "true") if len(sys.argv) > 5 else False
+                result = pdf_to_excel(file_path, output, mode=mode, single_sheet=single_sheet)
+                print(json.dumps({"success": True, "output": result}))
+                return
+            elif action == "pdf2ppt":
+                file_path = sys.argv[2]
+                output = sys.argv[3]
+                slide_size = sys.argv[4] if len(sys.argv) > 4 else "16:9"
+                vector_mode = (sys.argv[5].lower() == "true") if len(sys.argv) > 5 else False
+                result = pdf_to_ppt(file_path, output, slide_size=slide_size, vector_mode=vector_mode)
+                print(json.dumps({"success": True, "output": result}))
+                return
+
+        # Read parameters from stdin
         input_data = sys.stdin.read()
         if not input_data:
             print(json.dumps({"success": False, "error": "No input arguments provided."}))
@@ -461,47 +565,62 @@ def main():
             
         params = json.loads(input_data)
         action = params.get("action")
+        settings = params.get("settings", {})
         
         if action == "word2pdf":
             file_path = params.get("file")
             output = params.get("output")
-            result = word_to_pdf(file_path, output)
+            orientation = settings.get("orientation", "auto")
+            layout_mode = settings.get("layoutMode", "fit")
+            result = word_to_pdf(file_path, output, orientation=orientation, layout_mode=layout_mode)
             print(json.dumps({"success": True, "output": result}))
             
         elif action == "excel2pdf":
             file_path = params.get("file")
             output = params.get("output")
-            result = excel_to_pdf(file_path, output)
+            orientation = settings.get("orientation", "auto")
+            layout_mode = settings.get("layoutMode", "fit")
+            result = excel_to_pdf(file_path, output, orientation=orientation, layout_mode=layout_mode)
             print(json.dumps({"success": True, "output": result}))
             
         elif action == "pdf2word":
             file_path = params.get("file")
             output = params.get("output")
-            result = pdf_to_word(file_path, output)
+            mode = settings.get("mode", "flowing")
+            ocr = settings.get("ocr", False)
+            result = pdf_to_word(file_path, output, mode=mode, ocr=ocr)
             print(json.dumps({"success": True, "output": result}))
 
         elif action == "pdf2excel":
             file_path = params.get("file")
             output = params.get("output")
-            result = pdf_to_excel(file_path, output)
+            mode = settings.get("mode", "auto")
+            single_sheet = settings.get("singleSheet", False)
+            result = pdf_to_excel(file_path, output, mode=mode, single_sheet=single_sheet)
             print(json.dumps({"success": True, "output": result}))
 
         elif action == "pdf2ppt":
             file_path = params.get("file")
             output = params.get("output")
-            result = pdf_to_ppt(file_path, output)
+            slide_size = settings.get("slideSize", "16:9")
+            vector_mode = settings.get("vectorMode", False)
+            result = pdf_to_ppt(file_path, output, slide_size=slide_size, vector_mode=vector_mode)
             print(json.dumps({"success": True, "output": result}))
 
         elif action == "ppt2pdf":
             file_path = params.get("file")
             output = params.get("output")
-            result = ppt_to_pdf(file_path, output)
+            orientation = settings.get("orientation", "auto")
+            layout_mode = settings.get("layoutMode", "fit")
+            result = ppt_to_pdf(file_path, output, orientation=orientation, layout_mode=layout_mode)
             print(json.dumps({"success": True, "output": result}))
 
         elif action == "html2pdf":
             file_path = params.get("file")
             output = params.get("output")
-            result = html_to_pdf(file_path, output)
+            orientation = settings.get("orientation", "auto")
+            layout_mode = settings.get("layoutMode", "fit")
+            result = html_to_pdf(file_path, output, orientation=orientation, layout_mode=layout_mode)
             print(json.dumps({"success": True, "output": result}))
             
         else:

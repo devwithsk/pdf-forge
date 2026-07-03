@@ -11,7 +11,7 @@ from limits import assert_pdf_limits, MAX_IMAGE_PIXELS
 
 Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 
-def pdf_to_jpg(file_path, output_dir, poppler_path=None):
+def pdf_to_jpg(file_path, output_dir, img_format='jpg', dpi=120, quality=82, poppler_path=None):
     reader = assert_pdf_limits(file_path)
     os.makedirs(output_dir, exist_ok=True)
     
@@ -30,7 +30,7 @@ def pdf_to_jpg(file_path, output_dir, poppler_path=None):
                 # Convert pages one by one to prevent loading everything into RAM
                 pages = convert_from_path(
                     file_path, 
-                    dpi=120, 
+                    dpi=dpi, 
                     first_page=page_no, 
                     last_page=page_no, 
                     thread_count=1, 
@@ -38,9 +38,13 @@ def pdf_to_jpg(file_path, output_dir, poppler_path=None):
                 )
                 if not pages:
                     continue
-                img_name = f"{base_name}_page_{page_no}.jpg"
+                img_name = f"{base_name}_page_{page_no}.{img_format}"
                 img_path = os.path.join(output_dir, img_name)
-                pages[0].save(img_path, 'JPEG', quality=82, optimize=True)
+                save_format = 'PNG' if img_format.lower() == 'png' else 'JPEG'
+                if save_format == 'PNG':
+                    pages[0].save(img_path, save_format)
+                else:
+                    pages[0].save(img_path, save_format, quality=quality, optimize=True)
                 zip_file.write(img_path, img_name)
                 os.remove(img_path)
     except Exception as e:
@@ -194,6 +198,20 @@ def main():
                 result = jpg_to_pdf(images, output, paper_size, orientation, merge_mode)
                 print(json.dumps({"success": True, "output": result}))
                 return
+            elif action == "pdf2jpg":
+                # sys.argv[2]: input pdf path
+                # sys.argv[3]: output directory
+                # sys.argv[4]: image format (jpg/png)
+                # sys.argv[5]: dpi
+                # sys.argv[6]: quality
+                file_path = sys.argv[2]
+                output_dir = sys.argv[3]
+                img_format = sys.argv[4] if len(sys.argv) > 4 else "jpg"
+                dpi = int(sys.argv[5]) if len(sys.argv) > 5 else 120
+                quality = int(sys.argv[6]) if len(sys.argv) > 6 else 82
+                result = pdf_to_jpg(file_path, output_dir, img_format=img_format, dpi=dpi, quality=quality)
+                print(json.dumps({"success": True, "output": result}))
+                return
 
         # Fallback to stdin JSON payload
         input_data = sys.stdin.read()
@@ -208,7 +226,10 @@ def main():
             file_path = params.get("file")
             output_dir = params.get("output_dir")
             poppler_path = params.get("poppler_path")
-            result = pdf_to_jpg(file_path, output_dir, poppler_path)
+            img_format = params.get("format", "jpg")
+            dpi = int(params.get("dpi", 120))
+            quality = int(params.get("quality", 82))
+            result = pdf_to_jpg(file_path, output_dir, img_format=img_format, dpi=dpi, quality=quality, poppler_path=poppler_path)
             print(json.dumps({"success": True, "output": result}))
             
         elif action == "jpg2pdf":

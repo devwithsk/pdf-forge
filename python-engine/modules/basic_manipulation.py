@@ -28,7 +28,7 @@ def parse_range(range_str, max_pages):
                 pages.add(p)
     return sorted(list(pages))
 
-def merge_pdfs(files, output_path):
+def merge_pdfs(files, output_path, add_blank_page=False, compress=False):
     if not files or len(files) < 2:
         raise ValueError("At least two files are required for merging.")
     
@@ -36,10 +36,21 @@ def merge_pdfs(files, output_path):
     total_pages = 0
     for file in files:
         reader = assert_pdf_limits(file)
-        total_pages += len(reader.pages)
+        file_pages = len(reader.pages)
+        total_pages += file_pages
         if total_pages > 100:
             raise ValueError("Merged PDF exceeds 100 page limit.")
+        
         merger.append(file)
+        
+        # If add_blank_page is enabled and file has an odd number of pages, append a blank page
+        if add_blank_page and (file_pages % 2 != 0):
+            merger.add_blank_page()
+            total_pages += 1
+
+    if compress:
+        for page in merger.pages:
+            page.compress_content_streams()
     
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, "wb") as f:
@@ -112,6 +123,33 @@ def rotate_pdf(file_path, output_path, degrees=90):
 
 def main():
     try:
+        # Check command line arguments first
+        if len(sys.argv) >= 3:
+            action = sys.argv[1]
+            if action == "merge":
+                files = sys.argv[2].split(",")
+                output = sys.argv[3]
+                add_blank_page = (sys.argv[4].lower() == "true") if len(sys.argv) > 4 else False
+                compress = (sys.argv[5].lower() == "true") if len(sys.argv) > 5 else False
+                result = merge_pdfs(files, output, add_blank_page=add_blank_page, compress=compress)
+                print(json.dumps({"success": True, "output": result}))
+                return
+            elif action == "split":
+                file_path = sys.argv[2]
+                output_dir = sys.argv[3]
+                split_mode = sys.argv[4] if len(sys.argv) > 4 else "all"
+                range_str = sys.argv[5] if len(sys.argv) > 5 else ""
+                result = split_pdf(file_path, output_dir, split_mode, range_str)
+                print(json.dumps({"success": True, "output": result}))
+                return
+            elif action == "rotate":
+                file_path = sys.argv[2]
+                output = sys.argv[3]
+                degrees = int(sys.argv[4]) if len(sys.argv) > 4 else 90
+                result = rotate_pdf(file_path, output, degrees)
+                print(json.dumps({"success": True, "output": result}))
+                return
+
         # Read parameters from stdin
         input_data = sys.stdin.read()
         if not input_data:
@@ -124,7 +162,9 @@ def main():
         if action == "merge":
             files = params.get("files")
             output = params.get("output")
-            result = merge_pdfs(files, output)
+            add_blank_page = params.get("add_blank_page", False)
+            compress = params.get("compress", False)
+            result = merge_pdfs(files, output, add_blank_page=add_blank_page, compress=compress)
             print(json.dumps({"success": True, "output": result}))
             
         elif action == "split":
