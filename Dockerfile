@@ -1,11 +1,13 @@
 # Use Python 3.10 slim as the base image
 FROM python:3.10-slim
 
-# Install system dependencies (curl, gnupg, and poppler-utils for PDF-to-Image conversions)
-RUN apt-get update && apt-get install -y \
+# Install system dependencies (curl, gnupg, poppler-utils, and libreoffice for high-fidelity conversions)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     gnupg \
     poppler-utils \
+    libreoffice \
+    fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js 18.x via NodeSource

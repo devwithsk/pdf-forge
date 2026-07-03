@@ -1,6 +1,9 @@
 import os
 import sys
 import json
+import shutil
+import subprocess
+import tempfile
 from pdf2docx import Converter
 from reportlab.lib.pagesizes import letter, landscape
 from limits import assert_pdf_limits
@@ -17,6 +20,10 @@ if sys.platform == "win32":
         COM_AVAILABLE = True
     except ImportError:
         pass
+
+# Probe for headless LibreOffice once at startup — avoids repeated shell calls per request
+LIBREOFFICE_AVAILABLE = shutil.which('libreoffice') is not None or shutil.which('soffice') is not None
+_LO_BIN = shutil.which('libreoffice') or shutil.which('soffice') or 'libreoffice'
 
 def convert_word_to_pdf_com(file_path, output_path, orientation='auto'):
     """Converts DOCX to PDF using Word COM automation on Windows."""
@@ -61,60 +68,50 @@ def convert_excel_to_pdf_com(file_path, output_path, orientation='auto'):
     finally:
         excel.Quit()
 
-def word_to_pdf_portable(file_path, output_path, orientation='auto', layout_mode='fit'):
-    """Fallback cross-platform docx to pdf renderer using python-docx and reportlab."""
+def _word_to_pdf_reportlab_fallback(file_path, output_path, orientation='auto', layout_mode='fit'):
+    """Legacy cross-platform DOCX→PDF renderer using python-docx + reportlab.
+    Used only when LibreOffice is not available (e.g. stripped dev environments)."""
     import docx
-    
+
     doc = docx.Document(file_path)
     if len(doc.paragraphs) > 1000:
         raise ValueError("Word document exceeds 1000 paragraph limit.")
-        
+
     pagesize = letter
     if orientation.lower() == 'landscape':
         pagesize = landscape(letter)
-        
+
     margin = 40
     if layout_mode.lower() == 'fit':
         margin = 30
-        
+
     doc_template = SimpleDocTemplate(
-        output_path, 
+        output_path,
         pagesize=pagesize,
         rightMargin=margin, leftMargin=margin, topMargin=margin, bottomMargin=margin
     )
-    
+
     styles = getSampleStyleSheet()
     story = []
-    
-    # Custom heading styles
+
     heading1_style = ParagraphStyle(
-        name='DocxHeading1',
-        parent=styles['Heading1'],
-        fontSize=18,
-        leading=22,
-        spaceAfter=8
+        name='DocxHeading1', parent=styles['Heading1'],
+        fontSize=18, leading=22, spaceAfter=8
     )
     heading2_style = ParagraphStyle(
-        name='DocxHeading2',
-        parent=styles['Heading2'],
-        fontSize=14,
-        leading=18,
-        spaceAfter=6
+        name='DocxHeading2', parent=styles['Heading2'],
+        fontSize=14, leading=18, spaceAfter=6
     )
     normal_style = ParagraphStyle(
-        name='DocxNormal',
-        parent=styles['Normal'],
-        fontSize=10,
-        leading=14,
-        spaceAfter=6
+        name='DocxNormal', parent=styles['Normal'],
+        fontSize=10, leading=14, spaceAfter=6
     )
-    
+
     for paragraph in doc.paragraphs:
         text = paragraph.text.strip()
         if not text:
             story.append(Spacer(1, 10))
             continue
-            
         style_name = paragraph.style.name.lower()
         if "heading 1" in style_name:
             story.append(Paragraph(text, heading1_style))
@@ -122,22 +119,20 @@ def word_to_pdf_portable(file_path, output_path, orientation='auto', layout_mode
             story.append(Paragraph(text, heading2_style))
         else:
             story.append(Paragraph(text, normal_style))
-            
-    # Also parse tables if present
+
     for table in doc.tables:
         table_data = []
         for row in table.rows:
-            row_text = [cell.text.strip() for cell in row.cells]
-            table_data.append(row_text)
-            
+            row_data = [cell.text.strip() for cell in row.cells]
+            table_data.append(row_data)
         if table_data:
             t = Table(table_data)
             t.setStyle(TableStyle([
-                ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-                ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
-                ('PADDING', (0,0), (-1,-1), 6),
-                ('VALIGN', (0,0), (-1,-1), 'TOP'),
-                ('FONTSIZE', (0,0), (-1,-1), 9),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                ('PADDING', (0, 0), (-1, -1), 6),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
             ]))
             story.append(Spacer(1, 10))
             story.append(t)
@@ -145,8 +140,100 @@ def word_to_pdf_portable(file_path, output_path, orientation='auto', layout_mode
 
     if not story:
         story.append(Paragraph("Empty Document", normal_style))
-        
+
     doc_template.build(story)
+
+
+def _apply_docx_orientation(file_path, orientation, work_dir):
+    """Clone the DOCX into a temp location and patch its page orientation via
+    python-docx so LibreOffice inherits the correct layout.  Returns the path
+    to the (possibly modified) copy."""
+    import docx
+    from docx.oxml.ns import qn
+    from lxml import etree
+
+    dest = os.path.join(work_dir, os.path.basename(file_path))
+    shutil.copy2(file_path, dest)
+
+    if orientation.lower() not in ('landscape', 'portrait'):
+        return dest  # 'auto' — leave document as-is
+
+    doc = docx.Document(dest)
+    new_orient = 'landscape' if orientation.lower() == 'landscape' else 'portrait'
+    w_orient = 'landscape' if new_orient == 'landscape' else None  # None removes the attribute
+
+    for section in doc.sections:
+        pgSz = section._sectPr.find(qn('w:pgSz'))
+        if pgSz is None:
+            pgSz = etree.SubElement(section._sectPr, qn('w:pgSz'))
+        if w_orient:
+            pgSz.set(qn('w:orient'), w_orient)
+            # Swap width/height so LibreOffice renders the correct page size
+            w_val = pgSz.get(qn('w:w'))
+            h_val = pgSz.get(qn('w:h'))
+            if w_val and h_val:
+                if int(w_val) < int(h_val):  # currently portrait — flip to landscape
+                    pgSz.set(qn('w:w'), h_val)
+                    pgSz.set(qn('w:h'), w_val)
+        else:
+            pgSz.attrib.pop(qn('w:orient'), None)
+            w_val = pgSz.get(qn('w:w'))
+            h_val = pgSz.get(qn('w:h'))
+            if w_val and h_val:
+                if int(w_val) > int(h_val):  # currently landscape — flip to portrait
+                    pgSz.set(qn('w:w'), h_val)
+                    pgSz.set(qn('w:h'), w_val)
+
+    doc.save(dest)
+    return dest
+
+
+def word_to_pdf_portable(file_path, output_path, orientation='auto', layout_mode='fit'):
+    """Convert DOCX → PDF using headless LibreOffice for professional layout fidelity.
+    Falls back to the legacy reportlab renderer if LibreOffice is not installed."""
+
+    if not LIBREOFFICE_AVAILABLE:
+        # Local dev without LibreOffice — use legacy renderer
+        _word_to_pdf_reportlab_fallback(file_path, output_path, orientation=orientation, layout_mode=layout_mode)
+        return
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    with tempfile.TemporaryDirectory() as work_dir:
+        # Apply orientation settings to a temporary copy of the DOCX
+        input_file = _apply_docx_orientation(file_path, orientation, work_dir)
+
+        # LibreOffice writes <stem>.pdf into work_dir
+        try:
+            subprocess.run(
+                [
+                    _LO_BIN,
+                    '--headless',
+                    '--convert-to', 'pdf',
+                    '--outdir', work_dir,
+                    input_file,
+                ],
+                check=True,
+                timeout=120,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+        except subprocess.CalledProcessError as exc:
+            stderr_msg = exc.stderr.decode(errors='replace') if exc.stderr else ''
+            raise RuntimeError(f"LibreOffice conversion failed: {stderr_msg}") from exc
+
+        # Locate the generated PDF (LibreOffice names it after the input stem)
+        stem = os.path.splitext(os.path.basename(input_file))[0]
+        lo_output = os.path.join(work_dir, stem + '.pdf')
+
+        if not os.path.exists(lo_output):
+            # Search for any PDF produced in work_dir as a safety net
+            pdfs = [f for f in os.listdir(work_dir) if f.lower().endswith('.pdf')]
+            if not pdfs:
+                raise RuntimeError("LibreOffice did not produce a PDF output file.")
+            lo_output = os.path.join(work_dir, pdfs[0])
+
+        shutil.move(lo_output, output_path)
 
 def excel_to_pdf_portable(file_path, output_path, orientation='auto', layout_mode='fit'):
     """Fallback cross-platform xlsx to pdf renderer using openpyxl and reportlab."""
@@ -371,64 +458,101 @@ def convert_ppt_to_pdf_com(file_path, output_path):
     finally:
         powerpoint.Quit()
 
-def ppt_to_pdf_portable(file_path, output_path, orientation='auto', layout_mode='fit'):
+def _ppt_to_pdf_reportlab_fallback(file_path, output_path, orientation='auto', layout_mode='fit'):
+    """Legacy cross-platform PPTX→PDF renderer using python-pptx + reportlab.
+    Used only when LibreOffice is not available."""
     from pptx import Presentation
-    
+
     prs = Presentation(file_path)
     if len(prs.slides) > 100:
         raise ValueError("PowerPoint presentation exceeds 100 slide limit.")
-        
+
     pagesize = landscape(letter)
     if orientation.lower() == 'portrait':
         pagesize = letter
-        
+
     margin = 40
     if layout_mode.lower() == 'fit':
         margin = 20
-        
+
     doc_template = SimpleDocTemplate(
-        output_path, 
+        output_path,
         pagesize=pagesize,
         rightMargin=margin, leftMargin=margin, topMargin=margin, bottomMargin=margin
     )
-    
+
     styles = getSampleStyleSheet()
     story = []
-    
+
     normal_style = ParagraphStyle(
-        name='PptNormal',
-        parent=styles['Normal'],
-        fontSize=10,
-        leading=14,
-        spaceAfter=6
+        name='PptNormal', parent=styles['Normal'],
+        fontSize=10, leading=14, spaceAfter=6
     )
-    
     title_style = ParagraphStyle(
-        name='PptTitle',
-        parent=styles['Heading2'],
-        fontSize=16,
-        leading=20,
-        spaceAfter=12
+        name='PptTitle', parent=styles['Heading2'],
+        fontSize=16, leading=20, spaceAfter=12
     )
-    
+
     for idx, slide in enumerate(prs.slides):
         if idx > 0:
             story.append(PageBreak())
-            
         story.append(Paragraph(f"Slide {idx+1}", title_style))
-        
-        # Read text shapes
         for shape in slide.shapes:
             if shape.has_text_frame:
                 for paragraph in shape.text_frame.paragraphs:
                     text = paragraph.text.strip()
                     if text:
                         story.append(Paragraph(text, normal_style))
-                        
+
     if not story:
         story.append(Paragraph("Empty Presentation", normal_style))
-        
+
     doc_template.build(story)
+
+
+def ppt_to_pdf_portable(file_path, output_path, orientation='auto', layout_mode='fit'):
+    """Convert PPTX → PDF using headless LibreOffice Impress for full slide fidelity.
+    Falls back to the legacy reportlab renderer if LibreOffice is not installed."""
+
+    if not LIBREOFFICE_AVAILABLE:
+        _ppt_to_pdf_reportlab_fallback(file_path, output_path, orientation=orientation, layout_mode=layout_mode)
+        return
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    with tempfile.TemporaryDirectory() as work_dir:
+        # Copy input so LibreOffice writes next to it in our controlled temp dir
+        input_copy = os.path.join(work_dir, os.path.basename(file_path))
+        shutil.copy2(file_path, input_copy)
+
+        try:
+            subprocess.run(
+                [
+                    _LO_BIN,
+                    '--headless',
+                    '--convert-to', 'pdf',
+                    '--outdir', work_dir,
+                    input_copy,
+                ],
+                check=True,
+                timeout=180,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+        except subprocess.CalledProcessError as exc:
+            stderr_msg = exc.stderr.decode(errors='replace') if exc.stderr else ''
+            raise RuntimeError(f"LibreOffice PPTX conversion failed: {stderr_msg}") from exc
+
+        stem = os.path.splitext(os.path.basename(input_copy))[0]
+        lo_output = os.path.join(work_dir, stem + '.pdf')
+
+        if not os.path.exists(lo_output):
+            pdfs = [f for f in os.listdir(work_dir) if f.lower().endswith('.pdf')]
+            if not pdfs:
+                raise RuntimeError("LibreOffice did not produce a PDF output file for PPTX.")
+            lo_output = os.path.join(work_dir, pdfs[0])
+
+        shutil.move(lo_output, output_path)
 
 def ppt_to_pdf(file_path, output_path, orientation='auto', layout_mode='fit'):
     if COM_AVAILABLE:
