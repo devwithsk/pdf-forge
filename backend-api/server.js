@@ -48,19 +48,8 @@ app.get('/download/:token', (req, res) => {
   }
   
   res.download(filePath, fileName, (err) => {
-    // Ephemeral tokens and files cleanup: delete token after download completes
-    deleteDownloadToken(token);
-    
-    // Clean up the parent job directory containing input/output files
-    const parentDir = path.dirname(filePath);
-    if (fs.existsSync(parentDir)) {
-      fs.rm(parentDir, { recursive: true, force: true }, (rmErr) => {
-        if (rmErr) {
-          console.error(`[Download Cleanup Error] Failed to delete directory ${parentDir}:`, rmErr.message);
-        } else {
-          console.log(`[Download Cleanup] Successfully deleted job directory ${parentDir} after download.`);
-        }
-      });
+    if (err) {
+      console.error(`[Download Error] Failed to serve file:`, err.message);
     }
   });
 });

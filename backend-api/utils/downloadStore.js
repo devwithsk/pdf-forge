@@ -5,11 +5,11 @@ const downloadTokens = new Map();
 
 function createDownloadToken(filePath, fileName) {
   const token = crypto.randomBytes(32).toString('hex');
-  // 15-minute token expiry
+  // 30-minute token expiry
   downloadTokens.set(token, {
     filePath,
     fileName,
-    expiresAt: Date.now() + 15 * 60 * 1000
+    expiresAt: Date.now() + 30 * 60 * 1000
   });
   return token;
 }
