@@ -29,6 +29,11 @@ The project uses a decoupled, three-tier microservice style:
 ```text
 pdf-utility-platform/
 │
+├── Dockerfile                    # Container configuration file for deployment
+├── run.bat                       # 1-Click Startup script for Windows
+├── UPDATES.md                    # Changelog listing updates since baseline commit
+├── README.md                     # Project overview and execution guide
+│
 ├── frontend/                     # React Client Application
 │   ├── src/
 │   │   ├── components/           # Navbar, Footer, AdBanners, DragDropZone
@@ -59,8 +64,17 @@ pdf-utility-platform/
 ### ⚡ 1-Click Startup (Windows)
 To run the entire platform at once, simply double-click the **`run.bat`** file in the root workspace directory. It will:
 - Check if `node_modules` are installed for the frontend and backend (installing them if missing).
-- Start the Backend API Server on `http://localhost:5000` in a dedicated console window.
+- Start the Backend API Server on `http://localhost:7860` in a dedicated console window.
 - Start the Frontend Client on `http://localhost:5173` in a second dedicated console window.
+
+---
+
+### 🐳 Docker Deployment (Decoupled Spaces)
+This project is configured to run inside a single container (such as Hugging Face Spaces or custom Docker hosts) using the root `Dockerfile`:
+- Uses `python:3.10-slim` as the base image.
+- Installs Node.js 18.x, system tools, and `poppler-utils` dependencies.
+- Sets up python core libraries (`reportlab`, `pikepdf`, `pdf2image`, `openpyxl`, etc.).
+- Exposes port `7860` and starts the Node.js API server which acts as the application entry point.
 
 ---
 
@@ -90,7 +104,7 @@ pip install -r requirements.txt
 ```
 
 > [!NOTE]
-> For **PDF to JPG** conversion, the engine uses `pdf2image` which requires **Poppler**. Install poppler on your system and add the `bin/` folder to your environment system PATH.
+> For **PDF to Image** conversion, the engine uses `pdf2image` which requires **Poppler**. Install poppler on your system and add the `bin/` folder to your environment system PATH.
 
 ### 2. Backend API Setup (NodeJS)
 
@@ -103,7 +117,7 @@ cd ../backend-api
 # Install npm packages
 npm install
 
-# Start Express server (runs on http://localhost:5000)
+# Start Express server (runs on http://localhost:7860)
 npm run dev
 ```
 
@@ -131,17 +145,21 @@ npm run dev
 
 ### Module 2: Security & Formatting
 * **Protect PDF:** Encrypt a PDF with password security.
-* **Unlock PDF:** Decrypt an owner-secured PDF using its password.
+* **Unlock PDF:** Decrypt an owner-secured PDF using its password. Sanitizes paths and presents friendly errors to the user.
 * **Watermark PDF:** Stamp rotated custom text watermarks onto all pages matching target dimensions.
 
 ### Module 3: Image Conversion
-* **PDF to JPG:** Convert each page of a PDF file to JPEGs (ZIP archive).
-* **JPG to PDF:** Build a single unified PDF from multiple JPG/PNG image uploads.
+* **PDF to Image (JPG/PNG):** Convert each page of a PDF file to images bundled in a ZIP archive.
+* **Image to PDF (JPG/JPEG/PNG):** Build a unified PDF from multiple image uploads with A4, US Letter, or Auto page sizes, Portrait/Landscape orientations, and a layout alignment engine. Supports individual ZIP archive packaging.
 
 ### Module 4: Document Conversion
 * **Word to PDF:** Render `.docx` files to PDF. (Includes a Windows Word COM automated bridge with portable Python fallback).
 * **Excel to PDF:** Render `.xlsx` sheets to PDF pages dynamically formatted in landscape.
-* **PDF to Word:** Convert PDF documents back to editable Microsoft Word documents.
+* **PowerPoint to PDF:** Render PowerPoint files (`.pptx`) to PDF pages.
+* **HTML to PDF:** Convert custom HTML files/pages to PDF format.
+* **PDF to Word:** Convert PDF documents back to editable Microsoft Word documents (`.docx`).
+* **PDF to Excel:** Extract PDF tables into editable Excel spreadsheets (`.xlsx`).
+* **PDF to PowerPoint:** Convert PDF pages into editable PowerPoint presentation slides (`.pptx`).
 
 ---
 

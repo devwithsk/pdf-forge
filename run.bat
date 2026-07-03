@@ -23,7 +23,7 @@ if not exist "frontend\node_modules\" (
 )
 
 :: Start Backend Server in a new window
-echo [System] Starting Backend API Server (Port 5000)...
+echo [System] Starting Backend API Server (Port 7860)...
 start "PDFForge - Backend Server" cmd /k "cd backend-api && title Backend Server && npm run dev"
 
 :: Start Frontend React Client in a new window
@@ -33,7 +33,7 @@ start "PDFForge - Frontend Client" cmd /k "cd frontend && title Frontend Client 
 echo.
 echo ===================================================
 echo  PDFForge is launching!
-echo  - Backend API:   http://localhost:5000
+echo  - Backend API:   http://localhost:7860
 echo  - Frontend App:  http://localhost:5173
 echo.
 echo  Close the spawned command prompt windows to stop the servers.

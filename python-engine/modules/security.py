@@ -46,7 +46,11 @@ def unlock_pdf(file_path, output_path, password):
                 writer.write(f)
             return output_path
         except Exception as pypdf_err:
-            raise ValueError(f"Failed to decrypt PDF. Verify the password. Details: {str(pikepdf_err)}")
+            clean_err = str(pikepdf_err).replace(file_path, os.path.basename(file_path))
+            if "password" in clean_err.lower() or "decrypt" in clean_err.lower() or "unauthorized" in clean_err.lower():
+                raise ValueError("Failed to decrypt PDF: invalid password")
+            else:
+                raise ValueError(f"Failed to decrypt PDF: {clean_err}")
 
 def create_watermark_pdf(text, width, height, font_name="Helvetica", font_size=40, opacity=0.3, color="#888888"):
     temp_fd, temp_path = tempfile.mkstemp(suffix=".pdf")

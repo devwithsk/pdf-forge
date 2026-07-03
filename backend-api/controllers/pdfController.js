@@ -97,8 +97,44 @@ const spawnPythonArgs = (scriptName, args) => {
       } catch (err) {
         reject(new Error(`Invalid JSON output from Python script: ${stdout.substring(0, 500)}. Error: ${err.message}`));
       }
-    });
   });
+};
+
+// Clean user-facing error messages by removing technical prefixes and absolute file path names
+const sanitizeErrorMessage = (message, req) => {
+  if (!message) return 'An error occurred during processing.';
+  
+  let cleanMessage = message;
+  
+  // Replace absolute file paths with just the basename
+  if (req.file && req.file.path) {
+    const fullPath = req.file.path;
+    const baseName = path.basename(fullPath);
+    cleanMessage = cleanMessage.split(fullPath).join(baseName);
+    const altPath = fullPath.replace(/\\/g, '/');
+    cleanMessage = cleanMessage.split(altPath).join(baseName);
+  }
+  
+  if (req.files) {
+    req.files.forEach(f => {
+      const fullPath = f.path;
+      const baseName = path.basename(fullPath);
+      cleanMessage = cleanMessage.split(fullPath).join(baseName);
+      const altPath = fullPath.replace(/\\/g, '/');
+      cleanMessage = cleanMessage.split(altPath).join(baseName);
+    });
+  }
+  
+  // Simplify decryption password error
+  if (cleanMessage.toLowerCase().includes('password') && (cleanMessage.toLowerCase().includes('decrypt') || cleanMessage.toLowerCase().includes('incorrect') || cleanMessage.toLowerCase().includes('invalid'))) {
+    return 'Failed to decrypt PDF: invalid password';
+  }
+  
+  // Remove technical prefixes like "Python script error (code 1): ValueError: "
+  cleanMessage = cleanMessage.replace(/^Python script error \(code \d+\): \w+Error: /, '');
+  cleanMessage = cleanMessage.replace(/^Python script error \(code \d+\): /, '');
+  
+  return cleanMessage.trim();
 };
 
 // Log analytics to MongoDB (with try-catch to keep running if MongoDB connection is missing)
@@ -316,7 +352,8 @@ exports.unlockPDF = async (req, res) => {
   } catch (err) {
     await logAnalytics('unlock', 1, fileSize, 'failed', startTime, err.message, err.stack);
     cleanUpFiles([req.file.path]);
-    res.status(500).json({ success: false, error: err.message });
+    const friendlyError = sanitizeErrorMessage(err.message, req);
+    res.status(500).json({ success: false, error: friendlyError });
   }
 };
 
