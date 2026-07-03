@@ -11,4 +11,18 @@ const limiter = rateLimit({
   legacyHeaders: false, // Disable older X-RateLimit headers
 });
 
-module.exports = limiter;
+const heavyLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour window
+  max: 10, // limit CPU-heavy routes to 10 requests per windowMs
+  message: {
+    success: false,
+    error: 'Heavy conversion limit reached. Please try again in an hour.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+module.exports = {
+  limiter,
+  heavyLimiter
+};

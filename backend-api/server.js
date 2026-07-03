@@ -1,15 +1,18 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const pdfRoutes = require('./routes/pdfRoutes');
 const pdfController = require('./controllers/pdfController');
+const { getDownloadRecord, deleteDownloadToken } = require('./utils/downloadStore');
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 7860;
 
 // Connect to MongoDB
@@ -29,8 +32,38 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve final converted files statically for direct client-side downloading
-app.use('/processed', express.static(path.join(__dirname, 'processed')));
+// Secure token-based download endpoint
+app.get('/download/:token', (req, res) => {
+  const token = req.params.token;
+  const record = getDownloadRecord(token);
+  
+  if (!record || record.expiresAt < Date.now()) {
+    return res.status(404).json({ success: false, error: 'Download token is invalid or has expired.' });
+  }
+  
+  const { filePath, fileName } = record;
+  
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ success: false, error: 'The requested file no longer exists.' });
+  }
+  
+  res.download(filePath, fileName, (err) => {
+    // Ephemeral tokens and files cleanup: delete token after download completes
+    deleteDownloadToken(token);
+    
+    // Clean up the parent job directory containing input/output files
+    const parentDir = path.dirname(filePath);
+    if (fs.existsSync(parentDir)) {
+      fs.rm(parentDir, { recursive: true, force: true }, (rmErr) => {
+        if (rmErr) {
+          console.error(`[Download Cleanup Error] Failed to delete directory ${parentDir}:`, rmErr.message);
+        } else {
+          console.log(`[Download Cleanup] Successfully deleted job directory ${parentDir} after download.`);
+        }
+      });
+    }
+  });
+});
 
 // Mount API routes
 app.use('/api', pdfRoutes);
