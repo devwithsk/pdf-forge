@@ -97,6 +97,7 @@ const spawnPythonArgs = (scriptName, args) => {
       } catch (err) {
         reject(new Error(`Invalid JSON output from Python script: ${stdout.substring(0, 500)}. Error: ${err.message}`));
       }
+    });
   });
 };
 
