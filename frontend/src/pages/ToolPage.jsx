@@ -15,19 +15,33 @@ const FilePreviewCard = ({ file, index, totalFiles, onRemove, onMoveLeft, onMove
   useEffect(() => {
     if (!file.type.startsWith('image/')) return;
 
-    let url = null;
+    let active = true;
+    const reader = new FileReader();
+
+    reader.onloadend = () => {
+      if (active) {
+        setPreviewUrl(reader.result);
+      }
+    };
+
+    reader.onerror = () => {
+      if (active) {
+        setImgError(true);
+      }
+    };
+
     try {
-      url = URL.createObjectURL(file);
-      setPreviewUrl(url);
+      reader.readAsDataURL(file);
     } catch {
-      // URL creation failed — icon fallback will be used instead
+      if (active) {
+        setImgError(true);
+      }
     }
 
     return () => {
-      if (url) URL.revokeObjectURL(url);
+      active = false;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // mount-only: File objects are immutable, [file] causes revoke/recreate race on mobile
+  }, [file]);
 
   return (
     <div className="relative bg-white border border-slate-200/80 rounded-2xl p-4 flex flex-col items-center justify-between shadow-sm hover:shadow-md transition-all group aspect-[3/4] w-full max-w-[160px] mx-auto">
@@ -394,8 +408,10 @@ const ToolPage = () => {
         throw new Error(response.data.error || 'Server returned an error');
       }
     } catch (err) {
-      console.error(err);
-      setErrorMsg(err.response?.data?.error || err.message || 'An error occurred during processing.');
+      console.error('Full submission error details:', err);
+      const friendlyError = err.response?.data?.error || err.message || 'An error occurred during processing.';
+      setErrorMsg(friendlyError);
+      alert(`Processing failed: ${friendlyError}`);
     } finally {
       setIsProcessing(false);
     }

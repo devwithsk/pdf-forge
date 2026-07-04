@@ -17,20 +17,33 @@ const FileRow = ({ file, idx, totalFiles, multiple, onRemove, onMoveUp, onMoveDo
   useEffect(() => {
     if (!file.type.startsWith('image/')) return;
 
-    let url = null;
+    let active = true;
+    const reader = new FileReader();
+    
+    reader.onloadend = () => {
+      if (active) {
+        setPreviewUrl(reader.result);
+      }
+    };
+    
+    reader.onerror = () => {
+      if (active) {
+        setImgError(true);
+      }
+    };
+
     try {
-      url = URL.createObjectURL(file);
-      setPreviewUrl(url);
+      reader.readAsDataURL(file);
     } catch {
-      // URL creation failed (e.g. permissions issue on some mobile browsers) —
-      // leave previewUrl null so the icon fallback is shown instead.
+      if (active) {
+        setImgError(true);
+      }
     }
 
     return () => {
-      if (url) URL.revokeObjectURL(url);
+      active = false;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // mount-only — see comment above
+  }, [file]);
 
   const showThumbnail = previewUrl && !imgError;
 
