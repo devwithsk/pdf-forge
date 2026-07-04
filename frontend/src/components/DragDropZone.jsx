@@ -1,5 +1,79 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { UploadCloud, File, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+
+// Renders a single file row — shows an image thumbnail when the file is an image,
+// or a generic icon otherwise. Cleans up the object URL on unmount.
+const FileRow = ({ file, idx, totalFiles, multiple, onRemove, onMoveUp, onMoveDown, formatSize }) => {
+  const [previewUrl, setPreviewUrl] = useState(null);
+
+  useEffect(() => {
+    if (file.type.startsWith('image/')) {
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }
+  }, [file]);
+
+  return (
+    <div className="flex items-center gap-3 p-2.5 bg-slate-50 border border-slate-100 rounded-xl group hover:border-slate-200 hover:bg-white transition-all">
+      {/* Thumbnail / Icon */}
+      <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0 bg-primary/5 border border-slate-100 flex items-center justify-center">
+        {previewUrl ? (
+          <img
+            src={previewUrl}
+            alt={file.name}
+            className="w-full h-full object-cover"
+            draggable={false}
+          />
+        ) : (
+          <File size={20} className="text-primary/70" />
+        )}
+      </div>
+
+      {/* Name & size */}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-slate-800 truncate leading-tight" title={file.name}>
+          {file.name}
+        </p>
+        <p className="text-xs text-slate-400 mt-0.5 font-medium">{formatSize(file.size)}</p>
+      </div>
+
+      {/* Action buttons */}
+      <div className="flex items-center gap-0.5 shrink-0">
+        {multiple && (
+          <>
+            <button
+              type="button"
+              disabled={idx === 0}
+              onClick={() => onMoveUp(idx)}
+              className="p-2 hover:bg-slate-200 rounded-lg text-slate-500 disabled:opacity-25 disabled:hover:bg-transparent transition-colors"
+              title="Move up"
+            >
+              <ArrowUp size={14} />
+            </button>
+            <button
+              type="button"
+              disabled={idx === totalFiles - 1}
+              onClick={() => onMoveDown(idx)}
+              className="p-2 hover:bg-slate-200 rounded-lg text-slate-500 disabled:opacity-25 disabled:hover:bg-transparent transition-colors"
+              title="Move down"
+            >
+              <ArrowDown size={14} />
+            </button>
+          </>
+        )}
+        <button
+          type="button"
+          onClick={() => onRemove(idx)}
+          className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors ml-0.5"
+          title="Remove file"
+        >
+          <Trash2 size={15} />
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const DragDropZone = ({ accept, multiple, files, setFiles }) => {
   const [isDragActive, setIsDragActive] = useState(false);
@@ -127,7 +201,7 @@ const DragDropZone = ({ accept, multiple, files, setFiles }) => {
           </div>
         ) : (
           <div className="w-full text-left">
-            <div className="flex justify-between items-center pb-4 border-b border-slate-100 mb-4">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100 mb-3">
               <h4 className="font-bold text-slate-800 text-base">
                 Selected Files ({files.length})
               </h4>
@@ -136,63 +210,23 @@ const DragDropZone = ({ accept, multiple, files, setFiles }) => {
                 onClick={openFileDialog}
                 className="text-xs text-primary font-bold hover:underline"
               >
-                + Add More Files
+                + Add More
               </button>
             </div>
 
-            <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-[280px] overflow-y-auto pr-0.5">
               {files.map((file, idx) => (
-                <div 
-                  key={idx} 
-                  className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl group hover:border-slate-200 transition-all"
-                >
-                  <div className="flex items-center gap-3 truncate">
-                    <div className="w-8 h-8 rounded bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                      <File size={16} />
-                    </div>
-                    <div className="truncate">
-                      <p className="text-sm font-semibold text-slate-800 truncate" title={file.name}>
-                        {file.name}
-                      </p>
-                      <p className="text-xs text-slate-400">
-                        {formatSize(file.size)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1 shrink-0">
-                    {multiple && (
-                      <>
-                        <button
-                          type="button"
-                          disabled={idx === 0}
-                          onClick={() => moveFile(idx, -1)}
-                          className="p-1.5 hover:bg-slate-200 rounded text-slate-500 disabled:opacity-30 disabled:hover:bg-transparent"
-                          title="Move up"
-                        >
-                          <ArrowUp size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={idx === files.length - 1}
-                          onClick={() => moveFile(idx, 1)}
-                          className="p-1.5 hover:bg-slate-200 rounded text-slate-500 disabled:opacity-30 disabled:hover:bg-transparent"
-                          title="Move down"
-                        >
-                          <ArrowDown size={14} />
-                        </button>
-                      </>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => removeFile(idx)}
-                      className="p-1.5 hover:bg-red-50 text-red-500 rounded-lg transition-colors ml-1"
-                      title="Remove file"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </div>
+                <FileRow
+                  key={`${file.name}-${idx}`}
+                  file={file}
+                  idx={idx}
+                  totalFiles={files.length}
+                  multiple={multiple}
+                  onRemove={removeFile}
+                  onMoveUp={(i) => moveFile(i, -1)}
+                  onMoveDown={(i) => moveFile(i, 1)}
+                  formatSize={formatSize}
+                />
               ))}
             </div>
           </div>

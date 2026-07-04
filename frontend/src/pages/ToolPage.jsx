@@ -1054,9 +1054,10 @@ const ToolPage = () => {
 
                     <button
                       type="submit"
-                      disabled={files.length === 0}
-                      className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer ${
-                        files.length > 0
+                      onClick={handleSubmit}
+                      disabled={files.length === 0 || (isPageTool && pageOrder.length === 0)}
+                      className={`relative z-10 w-full py-4 rounded-2xl font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer ${
+                        files.length > 0 && (!isPageTool || pageOrder.length > 0)
                           ? 'bg-primary text-white hover:bg-primary-dark shadow-primary/20 hover:scale-[1.01]'
                           : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
                       }`}
