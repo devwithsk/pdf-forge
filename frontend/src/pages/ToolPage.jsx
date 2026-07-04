@@ -10,14 +10,24 @@ import { ArrowLeft, ArrowRight, Check, ShieldAlert, Download, RefreshCw, FileChe
 
 const FilePreviewCard = ({ file, index, totalFiles, onRemove, onMoveLeft, onMoveRight, isMultiple, formatSize }) => {
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [imgError, setImgError] = useState(false);
 
   useEffect(() => {
-    if (file.type.startsWith('image/')) {
-      const url = URL.createObjectURL(file);
+    if (!file.type.startsWith('image/')) return;
+
+    let url = null;
+    try {
+      url = URL.createObjectURL(file);
       setPreviewUrl(url);
-      return () => URL.revokeObjectURL(url);
+    } catch {
+      // URL creation failed — icon fallback will be used instead
     }
-  }, [file]);
+
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // mount-only: File objects are immutable, [file] causes revoke/recreate race on mobile
 
   return (
     <div className="relative bg-white border border-slate-200/80 rounded-2xl p-4 flex flex-col items-center justify-between shadow-sm hover:shadow-md transition-all group aspect-[3/4] w-full max-w-[160px] mx-auto">
@@ -28,8 +38,13 @@ const FilePreviewCard = ({ file, index, totalFiles, onRemove, onMoveLeft, onMove
 
       {/* Thumbnail/Icon Area */}
       <div className="flex-1 w-full flex items-center justify-center overflow-hidden rounded-xl bg-slate-50 border border-slate-100 mb-3 relative min-h-0">
-        {previewUrl ? (
-          <img src={previewUrl} alt={file.name} className="object-contain max-h-full max-w-full" />
+        {previewUrl && !imgError ? (
+          <img
+            src={previewUrl}
+            alt={file.name}
+            className="object-contain max-h-full max-w-full"
+            onError={() => setImgError(true)}
+          />
         ) : (
           <div className="flex flex-col items-center gap-1.5 text-slate-400">
             <File size={36} className="text-primary/70" />

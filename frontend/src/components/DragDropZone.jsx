@@ -3,27 +3,48 @@ import { UploadCloud, File, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 
 // Renders a single file row — shows an image thumbnail when the file is an image,
 // or a generic icon otherwise. Cleans up the object URL on unmount.
+//
+// IMPORTANT: The useEffect dependency array is intentionally empty ([]).
+// File objects are compared by reference — if the parent re-renders and passes
+// a new reference to the same underlying file, using [file] would revoke the
+// existing URL and immediately create a new one, causing a race condition on
+// mobile WebKit where the <img> src is invalidated before it finishes loading.
+// Since a File object never mutates, running this once on mount is correct.
 const FileRow = ({ file, idx, totalFiles, multiple, onRemove, onMoveUp, onMoveDown, formatSize }) => {
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [imgError, setImgError] = useState(false);
 
   useEffect(() => {
-    if (file.type.startsWith('image/')) {
-      const url = URL.createObjectURL(file);
+    if (!file.type.startsWith('image/')) return;
+
+    let url = null;
+    try {
+      url = URL.createObjectURL(file);
       setPreviewUrl(url);
-      return () => URL.revokeObjectURL(url);
+    } catch {
+      // URL creation failed (e.g. permissions issue on some mobile browsers) —
+      // leave previewUrl null so the icon fallback is shown instead.
     }
-  }, [file]);
+
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // mount-only — see comment above
+
+  const showThumbnail = previewUrl && !imgError;
 
   return (
     <div className="flex items-center gap-3 p-2.5 bg-slate-50 border border-slate-100 rounded-xl group hover:border-slate-200 hover:bg-white transition-all">
       {/* Thumbnail / Icon */}
       <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0 bg-primary/5 border border-slate-100 flex items-center justify-center">
-        {previewUrl ? (
+        {showThumbnail ? (
           <img
             src={previewUrl}
             alt={file.name}
             className="w-full h-full object-cover"
             draggable={false}
+            onError={() => setImgError(true)}
           />
         ) : (
           <File size={20} className="text-primary/70" />
