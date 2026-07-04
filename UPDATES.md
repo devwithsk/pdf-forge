@@ -103,7 +103,7 @@ This document details all the new features, capabilities, and optimization updat
 ### PDF Optimization, Recovery & Formatting
 * **Compress PDF:**
   - Configured `ghostscript` installation inside `Dockerfile` to handle high-fidelity compression.
-  - Spawns subprocess command `gs` with screen quality optimization configs, falling back to basic pypdf stream compression if needed.
+  - Spawns subprocess command `gs` mapping dynamic levels (`extreme` -> 72 dpi `/screen`, `recommended` -> 150 dpi `/ebook`, `less` -> 300 dpi `/printer`), falling back to basic pypdf stream compression if needed.
 * **Repair PDF:**
   - Implemented recovery wrapper calling `pikepdf.Pdf.open(..., recover=True)` to rebuild broken headers, trailers, or indexes.
 * **Page Numbers:**

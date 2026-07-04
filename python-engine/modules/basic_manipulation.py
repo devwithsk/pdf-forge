@@ -92,9 +92,17 @@ def add_page_numbers(input_path, output_path, position='bottom_center', starting
                 
     return output_path
 
-def compress_pdf(input_path, output_path):
+def compress_pdf(input_path, output_path, compression_level='recommended'):
     # Check if input path exists and limits
     assert_pdf_limits(input_path)
+    
+    # Map compression_level to Ghostscript presets
+    level_map = {
+        'extreme': '/screen',
+        'recommended': '/ebook',
+        'less': '/printer'
+    }
+    gs_preset = level_map.get(compression_level, '/ebook')
     
     # Try different executable names for Ghostscript depending on platform
     gs_executable = None
@@ -109,7 +117,7 @@ def compress_pdf(input_path, output_path):
                 gs_executable, 
                 '-sDEVICE=pdfwrite', 
                 '-dCompatibilityLevel=1.4', 
-                '-dPDFSETTINGS=/screen', 
+                f'-dPDFSETTINGS={gs_preset}', 
                 '-dNOPAUSE', 
                 '-dQUIET', 
                 '-dBATCH', 
@@ -333,7 +341,8 @@ def main():
             elif action == "compress":
                 file_path = sys.argv[2]
                 output = sys.argv[3]
-                result = compress_pdf(file_path, output)
+                compression_level = sys.argv[4] if len(sys.argv) > 4 else "recommended"
+                result = compress_pdf(file_path, output, compression_level)
                 print(json.dumps({"success": True, "output": result}))
                 return
             elif action == "repair":
@@ -393,7 +402,8 @@ def main():
         elif action == "compress":
             file_path = params.get("file")
             output = params.get("output")
-            result = compress_pdf(file_path, output)
+            compression_level = params.get("compression_level", "recommended")
+            result = compress_pdf(file_path, output, compression_level)
             print(json.dumps({"success": True, "output": result}))
             
         elif action == "repair":

@@ -165,7 +165,7 @@ npm run dev
 * **PDF to PowerPoint:** Convert PDF pages into editable PowerPoint presentation slides (`.pptx`).
 
 ### Module 5: PDF Optimization & Repair
-* **Compress PDF:** Reduce PDF size using Ghostscript integration (with lossless fallback).
+* **Compress PDF:** Reduce PDF size using Ghostscript presets with three customizable levels: Extreme (72 dpi), Recommended (150 dpi), or Less (300 dpi) compression (with lossless fallback).
 * **Repair PDF:** Automatically recover, fix, and rebuild corrupted or damaged PDF structures using `pikepdf`.
 
 ---

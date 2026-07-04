@@ -421,12 +421,23 @@ exports.compressPDF = async (req, res) => {
   const { jobDir, inputPaths } = initJob(req);
   const outputFileName = `compressed-${uuidv4()}.pdf`;
   const outputPath = path.join(jobDir, outputFileName);
+  let settings = {};
+  if (req.body.settings) {
+    try {
+      settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings;
+    } catch (e) {
+      console.error('Failed to parse settings:', e);
+    }
+  }
+  
+  const compressionLevel = settings.compressionLevel || 'recommended';
   
   try {
     const resultPath = await executePython('basic_manipulation.py', {
       action: 'compress',
       file: inputPaths[0],
-      output: outputPath
+      output: outputPath,
+      compression_level: compressionLevel
     });
     
     await logAnalytics('compress', 1, fileSize, 'success', startTime);

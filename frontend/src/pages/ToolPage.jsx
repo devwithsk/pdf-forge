@@ -231,6 +231,9 @@ const ToolPage = () => {
   const [numPosition, setNumPosition] = useState('bottom_center');
   const [numStartingNumber, setNumStartingNumber] = useState('1');
 
+  // Compress PDF settings states
+  const [compressionLevel, setCompressionLevel] = useState('recommended');
+
   useEffect(() => {
     const currentTool = tools.find(t => t.id === toolId);
     if (!currentTool) {
@@ -270,6 +273,7 @@ const ToolPage = () => {
       setPageOrder([]); // Reset page order on tool switch
       setNumPosition('bottom_center');
       setNumStartingNumber('1');
+      setCompressionLevel('recommended');
     }
   }, [toolId, tools, navigate]);
 
@@ -385,6 +389,10 @@ const ToolPage = () => {
       formData.append('settings', JSON.stringify(settingsPayload));
       setStatusText('Adding page numbers to PDF...');
     } else if (tool.id === 'compress') {
+      const settingsPayload = {
+        compressionLevel: compressionLevel
+      };
+      formData.append('settings', JSON.stringify(settingsPayload));
       setStatusText('Compressing PDF...');
     } else if (tool.id === 'repair') {
       setStatusText('Repairing and rebuilding PDF...');
@@ -861,9 +869,25 @@ const ToolPage = () => {
         );
       case 'remove-pages':
       case 'organize-pdf':
-      case 'compress':
       case 'repair':
         return null;
+      case 'compress':
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Compression Level</label>
+              <select
+                value={compressionLevel}
+                onChange={(e) => setCompressionLevel(e.target.value)}
+                className="block w-full p-3 border border-slate-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm cursor-pointer"
+              >
+                <option value="recommended">Recommended (Good quality, good compression)</option>
+                <option value="extreme">Extreme (Less quality, high compression)</option>
+                <option value="less">Less (High quality, less compression)</option>
+              </select>
+            </div>
+          </div>
+        );
       case 'numbers':
         return (
           <div className="space-y-4">
@@ -981,6 +1005,7 @@ const ToolPage = () => {
                     setPageOrder([]);
                     setNumPosition('bottom_center');
                     setNumStartingNumber('1');
+                    setCompressionLevel('recommended');
                   }}
                   className="flex-grow py-3 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl font-bold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
