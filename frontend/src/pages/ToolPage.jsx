@@ -3,7 +3,6 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import DragDropZone from '../components/DragDropZone';
 import ProcessingOverlay from '../components/ProcessingOverlay';
-import AdBanner from '../components/AdBanner';
 import PDFPageGrid from '../components/PDFPageGrid';
 import api from '../utils/api';
 import { ArrowLeft, ArrowRight, Check, ShieldAlert, Download, RefreshCw, FileCheck, Plus, Trash2, File } from 'lucide-react';
@@ -11,9 +10,11 @@ import { ArrowLeft, ArrowRight, Check, ShieldAlert, Download, RefreshCw, FileChe
 const FilePreviewCard = ({ file, index, totalFiles, onRemove, onMoveLeft, onMoveRight, isMultiple, formatSize }) => {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [imgError, setImgError] = useState(false);
+  const fileName = file?.name || 'Untitled file';
+  const fileExt = fileName.includes('.') ? fileName.split('.').pop() : 'file';
 
   useEffect(() => {
-    if (!file.type.startsWith('image/')) return;
+    if (!file?.type?.startsWith('image/')) return;
 
     let active = true;
     const reader = new FileReader();
@@ -40,6 +41,9 @@ const FilePreviewCard = ({ file, index, totalFiles, onRemove, onMoveLeft, onMove
 
     return () => {
       active = false;
+      if (reader.readyState === 1) {
+        reader.abort();
+      }
     };
   }, [file]);
 
@@ -55,25 +59,25 @@ const FilePreviewCard = ({ file, index, totalFiles, onRemove, onMoveLeft, onMove
         {previewUrl && !imgError ? (
           <img
             src={previewUrl}
-            alt={file.name}
+            alt={fileName}
             className="object-contain max-h-full max-w-full"
             onError={() => setImgError(true)}
           />
         ) : (
           <div className="flex flex-col items-center gap-1.5 text-slate-400">
             <File size={36} className="text-primary/70" />
-            <span className="text-[9px] uppercase font-bold tracking-wider">{file.name.split('.').pop()}</span>
+            <span className="text-[9px] uppercase font-bold tracking-wider">{fileExt}</span>
           </div>
         )}
       </div>
 
       {/* Info */}
       <div className="w-full text-center shrink-0 min-h-[32px] flex flex-col justify-center">
-        <p className="text-xs font-bold text-slate-700 truncate w-full px-1" title={file.name}>
-          {file.name}
+        <p className="text-xs font-bold text-slate-700 truncate w-full px-1" title={fileName}>
+          {fileName}
         </p>
         <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
-          {formatSize(file.size)}
+          {formatSize(file?.size)}
         </p>
       </div>
 
@@ -117,21 +121,20 @@ const FilePreviewCard = ({ file, index, totalFiles, onRemove, onMoveLeft, onMove
 const ToolPage = () => {
   const { toolId } = useParams();
   const navigate = useNavigate();
-  const { tools, setHasSelectedFiles } = useApp();
+  const { tools = [], setHasSelectedFiles = () => {} } = useApp() || {};
 
   const [tool, setTool] = useState(null);
   const [files, setFiles] = useState([]);
-  const selectedFiles = files;
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusText, setStatusText] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [successResult, setSuccessResult] = useState(null);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth >= 1024);
+  const [isLargeScreen, setIsLargeScreen] = useState(typeof window !== 'undefined' ? window.innerWidth >= 1024 : true);
 
   useEffect(() => {
     const handleResize = () => {
-      setIsLargeScreen(window.innerWidth >= 1024);
+      setIsLargeScreen(typeof window !== 'undefined' ? window.innerWidth >= 1024 : true);
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -157,7 +160,8 @@ const ToolPage = () => {
   };
 
   const triggerFileInput = () => {
-    const maxLimit = tool.id === 'compress' ? 5 : 20;
+    if (!tool) return;
+    const maxLimit = tool?.id === 'compress' ? 5 : 20;
     if (files.length >= maxLimit) {
       alert(`Maximum ${maxLimit} files allowed for this tool.`);
       return;
@@ -170,16 +174,17 @@ const ToolPage = () => {
   const handleFileAppend = (e) => {
     if (e.target.files && e.target.files.length > 0) {
       const list = Array.from(e.target.files);
-      const allowedExts = tool.accept.split(',').map(ext => ext.trim().toLowerCase());
+      if (!tool) return;
+      const allowedExts = (tool?.accept || '*').split(',').map(ext => ext.trim().toLowerCase());
       const filtered = list.filter(file => {
-        const ext = '.' + file.name.split('.').pop().toLowerCase();
-        return allowedExts.includes(ext) || tool.accept === '*';
+        const ext = '.' + (file?.name || '').split('.').pop().toLowerCase();
+        return allowedExts.includes(ext) || tool?.accept === '*';
       });
 
       if (filtered.length === 0) return;
 
       if (tool.multiple) {
-        const maxLimit = tool.id === 'compress' ? 5 : 20;
+        const maxLimit = tool?.id === 'compress' ? 5 : 20;
         setFiles((prev) => {
           const combined = [...prev, ...filtered];
           if (combined.length > maxLimit) {
@@ -248,7 +253,7 @@ const ToolPage = () => {
   const [compressionLevel, setCompressionLevel] = useState('recommended');
 
   useEffect(() => {
-    const currentTool = tools.find(t => t.id === toolId);
+    const currentTool = tools?.find?.(t => t?.id === toolId);
     if (!currentTool) {
       navigate('/');
     } else {
@@ -425,7 +430,7 @@ const ToolPage = () => {
     }
 
     try {
-      const response = await api.post(tool.endpoint, formData, {
+      const response = await api.post(tool?.endpoint || '', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -447,7 +452,8 @@ const ToolPage = () => {
       }
     } catch (err) {
       console.error('Full submission error details:', err);
-      const friendlyError = err.response?.data?.error || err.message || 'An error occurred during processing.';
+      const serverMessage = err.response?.data?.error || err.response?.data?.detail;
+      const friendlyError = serverMessage || err.message || 'An error occurred during processing.';
       setErrorMsg(friendlyError);
       alert(`Processing failed: ${friendlyError}`);
     } finally {
@@ -471,16 +477,19 @@ const ToolPage = () => {
 
       const blob = response.data;
       const objectUrl = window.URL.createObjectURL(blob);
-
       const link = document.createElement('a');
-      link.href = objectUrl;
-      link.setAttribute('download', successResult.fileName || 'forged-document.pdf');
+      try {
+        link.href = objectUrl;
+        link.setAttribute('download', successResult?.fileName || 'forged-document.pdf');
 
-      document.body.appendChild(link);
-      link.click();
-
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(objectUrl);
+        document.body.appendChild(link);
+        link.click();
+      } finally {
+        if (link.parentNode) {
+          document.body.removeChild(link);
+        }
+        window.URL.revokeObjectURL(objectUrl);
+      }
     } catch (err) {
       console.error('Secure download failed:', err);
       alert('Failed to securely download the file. Please try again.');
@@ -490,7 +499,7 @@ const ToolPage = () => {
   };
 
   const renderSettings = () => {
-    switch (tool.id) {
+    switch (tool?.id) {
       case 'protect':
         return (
           <div className="space-y-4">

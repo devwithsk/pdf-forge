@@ -84,35 +84,38 @@ def watermark_pdf(file_path, output_path, text, font_size=40, opacity=0.3, color
     
     # Store dynamic watermark paths to clean up
     temp_watermarks = {}
-    
-    for i, page in enumerate(reader.pages):
-        mediabox = page.mediabox
-        width = float(mediabox.width)
-        height = float(mediabox.height)
-        
-        # Avoid creating duplicate watermark PDFs of the same size
-        dims = (width, height)
-        if dims not in temp_watermarks:
-            wm_path = create_watermark_pdf(text, width, height, font_size=font_size, opacity=opacity, color=color)
-            temp_watermarks[dims] = wm_path
+    try:
+        for i, page in enumerate(reader.pages):
+            mediabox = page.mediabox
+            width = float(mediabox.width)
+            height = float(mediabox.height)
             
-        wm_path = temp_watermarks[dims]
-        wm_reader = PdfReader(wm_path)
-        wm_page = wm_reader.pages[0]
-        
-        page.merge_page(wm_page)
-        writer.add_page(page)
-        
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, "wb") as f:
-        writer.write(f)
-        
-    # Clean up temp watermarks
-    for path in temp_watermarks.values():
+            # Avoid creating duplicate watermark PDFs of the same size
+            dims = (width, height)
+            if dims not in temp_watermarks:
+                wm_path = create_watermark_pdf(text, width, height, font_size=font_size, opacity=opacity, color=color)
+                temp_watermarks[dims] = wm_path
+                
+            wm_path = temp_watermarks[dims]
+            wm_reader = PdfReader(wm_path)
+            wm_page = wm_reader.pages[0]
+            
+            page.merge_page(wm_page)
+            writer.add_page(page)
+            
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        with open(output_path, "wb") as f:
+            writer.write(f)
+    finally:
         try:
-            os.remove(path)
+            writer.close()
         except Exception:
             pass
+        for path in temp_watermarks.values():
+            try:
+                os.remove(path)
+            except Exception:
+                pass
             
     return output_path
 

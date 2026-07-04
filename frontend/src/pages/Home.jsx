@@ -6,7 +6,7 @@ import api from '../utils/api';
 import { Search, Sparkles, FileText, CheckCircle } from 'lucide-react';
 
 const Home = () => {
-  const { categories, stats, setStats } = useApp();
+  const { categories = [], stats, setStats = () => {} } = useApp() || {};
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   
@@ -22,7 +22,7 @@ const Home = () => {
           setStats({ totalConversions: 5420 });
         }
       } catch (err) {
-        console.warn('Analytics endpoint offline, showing simulated metric counter.');
+        console.warn('Analytics endpoint offline, showing simulated metric counter.', err);
         setStats({ totalConversions: 5420 });
       }
     };
@@ -33,15 +33,14 @@ const Home = () => {
   const allTools = useMemo(() => {
     const list = [];
     const seenIds = new Set();
-    categories.forEach(cat => {
-      cat.tools.forEach(t => {
-        if (!seenIds.has(t.id)) {
-          seenIds.add(t.id);
-          list.push({
-            ...t,
-            category: cat.id
-          });
-        }
+    categories?.forEach?.(cat => {
+      cat?.tools?.forEach?.(t => {
+        if (!t?.id || seenIds.has(t.id)) return;
+        seenIds.add(t.id);
+        list.push({
+          ...t,
+          category: cat?.id
+        });
       });
     });
     return list;
@@ -65,8 +64,11 @@ const Home = () => {
       }
 
       // 2. Search keyword match
-      const matchesSearch = tool.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            tool.desc.toLowerCase().includes(searchTerm.toLowerCase());
+      const toolName = tool?.name || '';
+      const toolDesc = tool?.desc || '';
+      const normalizedSearch = searchTerm.toLowerCase();
+      const matchesSearch = toolName.toLowerCase().includes(normalizedSearch) || 
+                            toolDesc.toLowerCase().includes(normalizedSearch);
 
       return matchesFilter && matchesSearch;
     });
@@ -153,7 +155,7 @@ const Home = () => {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 my-6">
           {filteredTools.map(tool => (
-            <ToolCard key={tool.id} tool={tool} />
+            <ToolCard key={tool?.id || tool?.name} tool={tool} />
           ))}
         </div>
       )}

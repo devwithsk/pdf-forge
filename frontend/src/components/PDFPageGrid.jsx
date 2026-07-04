@@ -11,7 +11,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 // ─── Single Page Thumbnail ──────────────────────────────────────────────────
 
 const PageThumbnail = ({
-  pageNum,      // 0-based original page index
+  pageNum: _pageNum,      // 0-based original page index
   displayNum,   // 1-based display label
   canvasDataUrl,
   isRemoved,
@@ -194,10 +194,10 @@ const PDFPageGrid = ({ pdfFile, mode, onPagesChange }) => {
             // leave canvasDataUrl as null for this page
           }
         }
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError('Failed to render PDF. The file may be corrupt or password-protected.');
-          setIsLoading(false);
+        } catch {
+          if (!cancelled) {
+            setLoadError('Failed to render PDF. The file may be corrupt or password-protected.');
+            setIsLoading(false);
         }
       }
     };

@@ -17,6 +17,7 @@ def add_page_numbers(input_path, output_path, position='bottom_center', starting
     # We will generate a temp PDF containing just the page numbers overlay,
     # then merge page by page.
     temp_num_path = input_path + ".temp_nums.pdf"
+    writer = None
     
     try:
         c = canvas.Canvas(temp_num_path)
@@ -82,8 +83,14 @@ def add_page_numbers(input_path, output_path, position='bottom_center', starting
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         with open(output_path, "wb") as f:
             writer.write(f)
+        writer.close()
             
     finally:
+        if writer is not None:
+            try:
+                writer.close()
+            except Exception:
+                pass
         if os.path.exists(temp_num_path):
             try:
                 os.remove(temp_num_path)
@@ -190,29 +197,31 @@ def merge_pdfs(files, output_path, add_blank_page=False, compress=False):
         raise ValueError("At least two files are required for merging.")
     
     merger = PdfWriter()
-    total_pages = 0
-    for file in files:
-        reader = assert_pdf_limits(file)
-        file_pages = len(reader.pages)
-        total_pages += file_pages
-        if total_pages > 100:
-            raise ValueError("Merged PDF exceeds 100 page limit.")
-        
-        merger.append(file)
-        
-        # If add_blank_page is enabled and file has an odd number of pages, append a blank page
-        if add_blank_page and (file_pages % 2 != 0):
-            merger.add_blank_page()
-            total_pages += 1
+    try:
+        total_pages = 0
+        for file in files:
+            reader = assert_pdf_limits(file)
+            file_pages = len(reader.pages)
+            total_pages += file_pages
+            if total_pages > 100:
+                raise ValueError("Merged PDF exceeds 100 page limit.")
+            
+            merger.append(file)
+            
+            # If add_blank_page is enabled and file has an odd number of pages, append a blank page
+            if add_blank_page and (file_pages % 2 != 0):
+                merger.add_blank_page()
+                total_pages += 1
 
-    if compress:
-        for page in merger.pages:
-            page.compress_content_streams()
-    
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, "wb") as f:
-        merger.write(f)
-    merger.close()
+        if compress:
+            for page in merger.pages:
+                page.compress_content_streams()
+        
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        with open(output_path, "wb") as f:
+            merger.write(f)
+    finally:
+        merger.close()
     return output_path
 
 def split_pdf(file_path, output_dir, split_mode="all", range_str=""):

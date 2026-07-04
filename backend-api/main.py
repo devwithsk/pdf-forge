@@ -5,10 +5,11 @@ import time
 import json
 import shutil
 import secrets
+import re
 from typing import List
 import zipfile
 
-from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
@@ -63,8 +64,54 @@ os.makedirs(JOBS_DIR, exist_ok=True)
 
 # Secure download token map
 download_tokens = {}
+MAX_FILENAME_LENGTH = 120
+CLEANUP_RETRIES = 3
+STALE_JOB_SECONDS = 6 * 60 * 60
+
+def safe_filename(filename: str, fallback: str = "upload.bin") -> str:
+    base_name = os.path.basename((filename or fallback).replace("\\", "/")).strip()
+    base_name = re.sub(r"[\x00-\x1f\x7f]+", "", base_name)
+    base_name = re.sub(r"[^A-Za-z0-9._ -]+", "_", base_name)
+    if base_name in ("", ".", ".."):
+        base_name = fallback
+    if len(base_name) > MAX_FILENAME_LENGTH:
+        stem, ext = os.path.splitext(base_name)
+        base_name = f"{stem[:MAX_FILENAME_LENGTH - len(ext) - 1]}{ext}"
+    return base_name
+
+def safe_join_job_path(job_dir: str, filename: str) -> str:
+    job_dir_abs = os.path.abspath(job_dir)
+    file_path = os.path.abspath(os.path.join(job_dir_abs, safe_filename(filename)))
+    if os.path.commonpath([job_dir_abs, file_path]) != job_dir_abs:
+        raise ValueError("Invalid upload filename.")
+    return file_path
+
+async def save_upload_file(upload_file: UploadFile, job_dir: str) -> str:
+    temp_path = safe_join_job_path(job_dir, upload_file.filename)
+    try:
+        with open(temp_path, "wb") as f:
+            shutil.copyfileobj(upload_file.file, f)
+    finally:
+        await upload_file.close()
+    return temp_path
+
+async def save_upload_files(upload_files: List[UploadFile], job_dir: str) -> List[str]:
+    input_paths = []
+    for upload_file in upload_files:
+        input_paths.append(await save_upload_file(upload_file, job_dir))
+    return input_paths
+
+def ensure_job_dir_path(path: str) -> str:
+    path_abs = os.path.abspath(path)
+    jobs_abs = os.path.abspath(JOBS_DIR)
+    if os.path.commonpath([jobs_abs, path_abs]) != jobs_abs:
+        raise ValueError("Refusing to clean a path outside the jobs directory.")
+    if os.path.basename(path_abs).startswith("job-") or os.path.basename(path_abs).endswith(".deleting"):
+        return path_abs
+    raise ValueError("Refusing to clean an unrecognized job path.")
 
 def create_download_token(file_path: str, file_name: str) -> str:
+    purge_expired_download_tokens()
     token = secrets.token_hex(32)
     # 30-minute token expiry
     download_tokens[token] = {
@@ -73,6 +120,12 @@ def create_download_token(file_path: str, file_name: str) -> str:
         "expires_at": time.time() + 30 * 60
     }
     return token
+
+def purge_expired_download_tokens():
+    now = time.time()
+    for token, record in list(download_tokens.items()):
+        if record.get("expires_at", 0) <= now:
+            download_tokens.pop(token, None)
 
 def get_download_record(token: str):
     record = download_tokens.get(token)
@@ -84,11 +137,33 @@ def get_download_record(token: str):
     return None
 
 def remove_file_or_dir(path: str):
-    if os.path.isdir(path):
-        shutil.rmtree(path, ignore_errors=True)
-    elif os.path.isfile(path):
+    try:
+        path_abs = ensure_job_dir_path(path) if os.path.isdir(path) else os.path.abspath(path)
+    except ValueError:
+        return
+
+    for attempt in range(CLEANUP_RETRIES):
         try:
-            os.remove(path)
+            if os.path.isdir(path_abs):
+                shutil.rmtree(path_abs)
+            elif os.path.isfile(path_abs):
+                os.remove(path_abs)
+            return
+        except FileNotFoundError:
+            return
+        except Exception:
+            if attempt < CLEANUP_RETRIES - 1:
+                time.sleep(0.25 * (attempt + 1))
+
+def cleanup_stale_job_dirs():
+    now = time.time()
+    for name in os.listdir(JOBS_DIR):
+        job_path = os.path.join(JOBS_DIR, name)
+        if not os.path.isdir(job_path) or not name.startswith("job-"):
+            continue
+        try:
+            if now - os.path.getmtime(job_path) > STALE_JOB_SECONDS:
+                remove_file_or_dir(job_path)
         except Exception:
             pass
 
@@ -96,6 +171,26 @@ def zip_files(files_list: List[dict], zip_path: str):
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
         for f in files_list:
             zip_file.write(f["path"], f["name"])
+
+def error_payload(message: str):
+    return {"success": False, "error": message}
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    detail = exc.detail if isinstance(exc.detail, str) else "Request failed."
+    return JSONResponse(status_code=exc.status_code, content=error_payload(detail))
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content=error_payload("Processing failed unexpectedly. Please try again with a valid file.")
+    )
+
+@app.on_event("startup")
+def startup_cleanup():
+    purge_expired_download_tokens()
+    cleanup_stale_job_dirs()
 
 @app.get("/")
 def read_root():
@@ -158,16 +253,11 @@ async def pdf_to_jpg_endpoint(
     dpi = int(settings_dict.get("dpi", 120))
     quality = int(settings_dict.get("quality", 82))
     
-    input_paths = []
-    for upload_file in files:
-        temp_path = os.path.join(job_dir, upload_file.filename)
-        with open(temp_path, "wb") as f:
-            shutil.copyfileobj(upload_file.file, f)
-        input_paths.append(temp_path)
+    input_paths = await save_upload_files(files, job_dir)
         
     total_files = len(input_paths)
     if total_files == 0:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=400, detail="Please upload at least one PDF file.")
         
     try:
@@ -221,7 +311,7 @@ async def pdf_to_jpg_endpoint(
                 "size": os.path.getsize(zip_path)
             }
     except Exception as e:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/word2pdf")
@@ -241,16 +331,11 @@ async def word_to_pdf_endpoint(
     orientation = settings_dict.get("orientation", "auto")
     layout_mode = settings_dict.get("layoutMode", "fit")
     
-    input_paths = []
-    for upload_file in files:
-        temp_path = os.path.join(job_dir, upload_file.filename)
-        with open(temp_path, "wb") as f:
-            shutil.copyfileobj(upload_file.file, f)
-        input_paths.append(temp_path)
+    input_paths = await save_upload_files(files, job_dir)
         
     total_files = len(input_paths)
     if total_files == 0:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=400, detail="Please upload at least one Word file (.docx).")
         
     try:
@@ -305,7 +390,7 @@ async def word_to_pdf_endpoint(
                 "size": os.path.getsize(zip_path)
             }
     except Exception as e:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/merge")
@@ -325,15 +410,10 @@ async def merge_endpoint(
     add_blank_page = settings_dict.get("addBlankPage", False)
     compress = settings_dict.get("compress", False)
     
-    input_paths = []
-    for upload_file in files:
-        temp_path = os.path.join(job_dir, upload_file.filename)
-        with open(temp_path, "wb") as f:
-            shutil.copyfileobj(upload_file.file, f)
-        input_paths.append(temp_path)
+    input_paths = await save_upload_files(files, job_dir)
         
     if len(input_paths) < 2:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=400, detail="At least two PDF files are required for merging.")
         
     try:
@@ -355,7 +435,7 @@ async def merge_endpoint(
             "size": os.path.getsize(result_path)
         }
     except Exception as e:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/split")
@@ -375,16 +455,11 @@ async def split_endpoint(
     split_mode = settings_dict.get("splitMode", "all")
     range_str = settings_dict.get("range", "")
     
-    input_paths = []
-    for upload_file in files:
-        temp_path = os.path.join(job_dir, upload_file.filename)
-        with open(temp_path, "wb") as f:
-            shutil.copyfileobj(upload_file.file, f)
-        input_paths.append(temp_path)
+    input_paths = await save_upload_files(files, job_dir)
         
     total_files = len(input_paths)
     if total_files == 0:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=400, detail="Please upload at least one PDF file.")
         
     try:
@@ -434,7 +509,7 @@ async def split_endpoint(
                 "size": os.path.getsize(zip_path)
             }
     except Exception as e:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/rotate")
@@ -453,16 +528,11 @@ async def rotate_endpoint(
         
     degrees = int(settings_dict.get("degrees", 90))
     
-    input_paths = []
-    for upload_file in files:
-        temp_path = os.path.join(job_dir, upload_file.filename)
-        with open(temp_path, "wb") as f:
-            shutil.copyfileobj(upload_file.file, f)
-        input_paths.append(temp_path)
+    input_paths = await save_upload_files(files, job_dir)
         
     total_files = len(input_paths)
     if total_files == 0:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=400, detail="Please upload at least one PDF file.")
         
     try:
@@ -512,7 +582,7 @@ async def rotate_endpoint(
                 "size": os.path.getsize(zip_path)
             }
     except Exception as e:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/remove-pages")
@@ -531,9 +601,7 @@ async def remove_pages_endpoint(
         
     page_order = settings_dict.get("pageOrder", [])
     
-    temp_path = os.path.join(job_dir, file.filename)
-    with open(temp_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+    temp_path = await save_upload_file(file, job_dir)
         
     try:
         output_filename = f"removed-pages-{uuid.uuid4()}.pdf"
@@ -552,7 +620,7 @@ async def remove_pages_endpoint(
             "size": os.path.getsize(result_path)
         }
     except Exception as e:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/organize-pdf")
@@ -571,9 +639,7 @@ async def organize_pdf_endpoint(
         
     page_order = settings_dict.get("pageOrder", [])
     
-    temp_path = os.path.join(job_dir, file.filename)
-    with open(temp_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+    temp_path = await save_upload_file(file, job_dir)
         
     try:
         output_filename = f"organized-{uuid.uuid4()}.pdf"
@@ -592,7 +658,7 @@ async def organize_pdf_endpoint(
             "size": os.path.getsize(result_path)
         }
     except Exception as e:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/compress")
@@ -611,16 +677,11 @@ async def compress_endpoint(
         
     compression_level = settings_dict.get("compressionLevel", "recommended")
     
-    input_paths = []
-    for upload_file in files:
-        temp_path = os.path.join(job_dir, upload_file.filename)
-        with open(temp_path, "wb") as f:
-            shutil.copyfileobj(upload_file.file, f)
-        input_paths.append(temp_path)
+    input_paths = await save_upload_files(files, job_dir)
         
     total_files = len(input_paths)
     if total_files == 0:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=400, detail="Please upload at least one PDF file.")
         
     try:
@@ -670,7 +731,7 @@ async def compress_endpoint(
                 "size": os.path.getsize(zip_path)
             }
     except Exception as e:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/repair")
@@ -682,16 +743,11 @@ async def repair_endpoint(
     job_dir = os.path.join(JOBS_DIR, job_id)
     os.makedirs(job_dir, exist_ok=True)
     
-    input_paths = []
-    for upload_file in files:
-        temp_path = os.path.join(job_dir, upload_file.filename)
-        with open(temp_path, "wb") as f:
-            shutil.copyfileobj(upload_file.file, f)
-        input_paths.append(temp_path)
+    input_paths = await save_upload_files(files, job_dir)
         
     total_files = len(input_paths)
     if total_files == 0:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=400, detail="Please upload at least one PDF file.")
         
     try:
@@ -739,7 +795,7 @@ async def repair_endpoint(
                 "size": os.path.getsize(zip_path)
             }
     except Exception as e:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/protect")
@@ -758,19 +814,14 @@ async def protect_endpoint(
         
     password = settings_dict.get("password", "")
     if not password:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=400, detail="Password must be specified to protect PDF.")
         
-    input_paths = []
-    for upload_file in files:
-        temp_path = os.path.join(job_dir, upload_file.filename)
-        with open(temp_path, "wb") as f:
-            shutil.copyfileobj(upload_file.file, f)
-        input_paths.append(temp_path)
+    input_paths = await save_upload_files(files, job_dir)
         
     total_files = len(input_paths)
     if total_files == 0:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=400, detail="Please upload at least one PDF file.")
         
     try:
@@ -820,7 +871,7 @@ async def protect_endpoint(
                 "size": os.path.getsize(zip_path)
             }
     except Exception as e:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/unlock")
@@ -839,16 +890,11 @@ async def unlock_endpoint(
         
     password = settings_dict.get("password", "")
     
-    input_paths = []
-    for upload_file in files:
-        temp_path = os.path.join(job_dir, upload_file.filename)
-        with open(temp_path, "wb") as f:
-            shutil.copyfileobj(upload_file.file, f)
-        input_paths.append(temp_path)
+    input_paths = await save_upload_files(files, job_dir)
         
     total_files = len(input_paths)
     if total_files == 0:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=400, detail="Please upload at least one PDF file.")
         
     try:
@@ -898,7 +944,7 @@ async def unlock_endpoint(
                 "size": os.path.getsize(zip_path)
             }
     except Exception as e:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/watermark")
@@ -920,16 +966,11 @@ async def watermark_endpoint(
     opacity = float(settings_dict.get("opacity", 0.3))
     color = settings_dict.get("color", "#888888")
     
-    input_paths = []
-    for upload_file in files:
-        temp_path = os.path.join(job_dir, upload_file.filename)
-        with open(temp_path, "wb") as f:
-            shutil.copyfileobj(upload_file.file, f)
-        input_paths.append(temp_path)
+    input_paths = await save_upload_files(files, job_dir)
         
     total_files = len(input_paths)
     if total_files == 0:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=400, detail="Please upload at least one PDF file.")
         
     try:
@@ -985,7 +1026,7 @@ async def watermark_endpoint(
                 "size": os.path.getsize(zip_path)
             }
     except Exception as e:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/add-page-numbers")
@@ -1005,16 +1046,11 @@ async def add_page_numbers_endpoint(
     position = settings_dict.get("position", "bottom_center")
     starting_number = int(settings_dict.get("startingNumber", 1))
     
-    input_paths = []
-    for upload_file in files:
-        temp_path = os.path.join(job_dir, upload_file.filename)
-        with open(temp_path, "wb") as f:
-            shutil.copyfileobj(upload_file.file, f)
-        input_paths.append(temp_path)
+    input_paths = await save_upload_files(files, job_dir)
         
     total_files = len(input_paths)
     if total_files == 0:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=400, detail="Please upload at least one PDF file.")
         
     try:
@@ -1066,7 +1102,7 @@ async def add_page_numbers_endpoint(
                 "size": os.path.getsize(zip_path)
             }
     except Exception as e:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/jpg2pdf")
@@ -1087,15 +1123,10 @@ async def jpg_to_pdf_endpoint(
     orientation = settings_dict.get("orientation", "Portrait")
     mode = settings_dict.get("mode", "merge")
     
-    input_paths = []
-    for upload_file in images:
-        temp_path = os.path.join(job_dir, upload_file.filename)
-        with open(temp_path, "wb") as f:
-            shutil.copyfileobj(upload_file.file, f)
-        input_paths.append(temp_path)
+    input_paths = await save_upload_files(images, job_dir)
         
     if len(input_paths) == 0:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=400, detail="Please upload at least one image.")
         
     try:
@@ -1128,7 +1159,7 @@ async def jpg_to_pdf_endpoint(
             "size": os.path.getsize(result_path)
         }
     except Exception as e:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/excel2pdf")
@@ -1148,16 +1179,11 @@ async def excel_to_pdf_endpoint(
     orientation = settings_dict.get("orientation", "landscape")
     layout_mode = settings_dict.get("layoutMode", "fit")
     
-    input_paths = []
-    for upload_file in files:
-        temp_path = os.path.join(job_dir, upload_file.filename)
-        with open(temp_path, "wb") as f:
-            shutil.copyfileobj(upload_file.file, f)
-        input_paths.append(temp_path)
+    input_paths = await save_upload_files(files, job_dir)
         
     total_files = len(input_paths)
     if total_files == 0:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=400, detail="Please upload at least one Excel file (.xlsx).")
         
     try:
@@ -1209,7 +1235,7 @@ async def excel_to_pdf_endpoint(
                 "size": os.path.getsize(zip_path)
             }
     except Exception as e:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/pdf2word")
@@ -1229,16 +1255,11 @@ async def pdf_to_word_endpoint(
     mode = settings_dict.get("mode", "flowing")
     ocr = settings_dict.get("ocr", False)
     
-    input_paths = []
-    for upload_file in files:
-        temp_path = os.path.join(job_dir, upload_file.filename)
-        with open(temp_path, "wb") as f:
-            shutil.copyfileobj(upload_file.file, f)
-        input_paths.append(temp_path)
+    input_paths = await save_upload_files(files, job_dir)
         
     total_files = len(input_paths)
     if total_files == 0:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=400, detail="Please upload at least one PDF file.")
         
     try:
@@ -1290,7 +1311,7 @@ async def pdf_to_word_endpoint(
                 "size": os.path.getsize(zip_path)
             }
     except Exception as e:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/pdf2excel")
@@ -1310,16 +1331,11 @@ async def pdf_to_excel_endpoint(
     mode = settings_dict.get("mode", "auto")
     single_sheet = settings_dict.get("singleSheet", False)
     
-    input_paths = []
-    for upload_file in files:
-        temp_path = os.path.join(job_dir, upload_file.filename)
-        with open(temp_path, "wb") as f:
-            shutil.copyfileobj(upload_file.file, f)
-        input_paths.append(temp_path)
+    input_paths = await save_upload_files(files, job_dir)
         
     total_files = len(input_paths)
     if total_files == 0:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=400, detail="Please upload at least one PDF file.")
         
     try:
@@ -1371,7 +1387,7 @@ async def pdf_to_excel_endpoint(
                 "size": os.path.getsize(zip_path)
             }
     except Exception as e:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/pdf2ppt")
@@ -1391,16 +1407,11 @@ async def pdf_to_ppt_endpoint(
     slide_size = settings_dict.get("slideSize", "16:9")
     vector_mode = settings_dict.get("vectorMode", False)
     
-    input_paths = []
-    for upload_file in files:
-        temp_path = os.path.join(job_dir, upload_file.filename)
-        with open(temp_path, "wb") as f:
-            shutil.copyfileobj(upload_file.file, f)
-        input_paths.append(temp_path)
+    input_paths = await save_upload_files(files, job_dir)
         
     total_files = len(input_paths)
     if total_files == 0:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=400, detail="Please upload at least one PDF file.")
         
     try:
@@ -1452,7 +1463,7 @@ async def pdf_to_ppt_endpoint(
                 "size": os.path.getsize(zip_path)
             }
     except Exception as e:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/ppt2pdf")
@@ -1472,16 +1483,11 @@ async def ppt_to_pdf_endpoint(
     orientation = settings_dict.get("orientation", "auto")
     layout_mode = settings_dict.get("layoutMode", "fit")
     
-    input_paths = []
-    for upload_file in files:
-        temp_path = os.path.join(job_dir, upload_file.filename)
-        with open(temp_path, "wb") as f:
-            shutil.copyfileobj(upload_file.file, f)
-        input_paths.append(temp_path)
+    input_paths = await save_upload_files(files, job_dir)
         
     total_files = len(input_paths)
     if total_files == 0:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=400, detail="Please upload at least one PowerPoint file (.pptx).")
         
     try:
@@ -1533,7 +1539,7 @@ async def ppt_to_pdf_endpoint(
                 "size": os.path.getsize(zip_path)
             }
     except Exception as e:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/html2pdf")
@@ -1553,16 +1559,11 @@ async def html_to_pdf_endpoint(
     orientation = settings_dict.get("orientation", "auto")
     layout_mode = settings_dict.get("layoutMode", "fit")
     
-    input_paths = []
-    for upload_file in files:
-        temp_path = os.path.join(job_dir, upload_file.filename)
-        with open(temp_path, "wb") as f:
-            shutil.copyfileobj(upload_file.file, f)
-        input_paths.append(temp_path)
+    input_paths = await save_upload_files(files, job_dir)
         
     total_files = len(input_paths)
     if total_files == 0:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=400, detail="Please upload at least one HTML file (.html).")
         
     try:
@@ -1614,5 +1615,5 @@ async def html_to_pdf_endpoint(
                 "size": os.path.getsize(zip_path)
             }
     except Exception as e:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        remove_file_or_dir(job_dir)
         raise HTTPException(status_code=500, detail=str(e))

@@ -38,10 +38,17 @@ def pdf_to_jpg(file_path, output_dir, img_format='jpg', dpi=120, quality=82, pop
                 img_name = f"{base_name}.{img_format}"
                 img_path = os.path.join(output_dir, img_name)
                 save_format = 'PNG' if img_format.lower() == 'png' else 'JPEG'
-                if save_format == 'PNG':
-                    pages[0].save(img_path, save_format)
-                else:
-                    pages[0].save(img_path, save_format, quality=quality, optimize=True)
+                try:
+                    if save_format == 'PNG':
+                        pages[0].save(img_path, save_format)
+                    else:
+                        pages[0].save(img_path, save_format, quality=quality, optimize=True)
+                finally:
+                    for page_img in pages:
+                        try:
+                            page_img.close()
+                        except Exception:
+                            pass
                 return img_path
             else:
                 raise RuntimeError("Failed to convert the single page PDF.")
@@ -62,10 +69,17 @@ def pdf_to_jpg(file_path, output_dir, img_format='jpg', dpi=120, quality=82, pop
                 img_name = f"{base_name}_page_{page_no}.{img_format}"
                 img_path = os.path.join(output_dir, img_name)
                 save_format = 'PNG' if img_format.lower() == 'png' else 'JPEG'
-                if save_format == 'PNG':
-                    pages[0].save(img_path, save_format)
-                else:
-                    pages[0].save(img_path, save_format, quality=quality, optimize=True)
+                try:
+                    if save_format == 'PNG':
+                        pages[0].save(img_path, save_format)
+                    else:
+                        pages[0].save(img_path, save_format, quality=quality, optimize=True)
+                finally:
+                    for page_img in pages:
+                        try:
+                            page_img.close()
+                        except Exception:
+                            pass
                 zip_file.write(img_path, img_name)
                 os.remove(img_path)
     except Exception as e:
@@ -158,38 +172,36 @@ def jpg_to_pdf(image_paths, output_path, paper_size='A4', orientation='Portrait'
             
             zip_path = output_path
             
-            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-                added_names = {}
-                for idx, img_path in enumerate(image_paths):
-                    # get original filename without extension or use standard indexing
-                    orig_name = os.path.splitext(os.path.basename(img_path))[0]
-                    
-                    # Deduplicate name inside ZIP
-                    if orig_name in added_names:
-                        added_names[orig_name] += 1
-                        pdf_name = f"{orig_name}_{added_names[orig_name]}.pdf"
-                    else:
-                        added_names[orig_name] = 0
-                        pdf_name = f"{orig_name}.pdf"
-                    
-                    temp_pdf_name = f"{base_name}_{idx}_{orig_name}.pdf"
-                    temp_pdf_path = os.path.join(base_dir, temp_pdf_name)
-                    
-                    # Convert this single image
-                    create_pdf_from_images([img_path], temp_pdf_path, paper_size, orientation)
-                    
-                    # Add to ZIP under clean filename
-                    zip_file.write(temp_pdf_path, pdf_name)
-                    
-                    # Track for cleanup
-                    temp_files.append(temp_pdf_path)
-                    
-            # Clean up temp PDFs
-            for temp_file in temp_files:
-                try:
-                    os.remove(temp_file)
-                except OSError:
-                    pass
+            try:
+                with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                    added_names = {}
+                    for idx, img_path in enumerate(image_paths):
+                        # get original filename without extension or use standard indexing
+                        orig_name = os.path.splitext(os.path.basename(img_path))[0]
+                        
+                        # Deduplicate name inside ZIP
+                        if orig_name in added_names:
+                            added_names[orig_name] += 1
+                            pdf_name = f"{orig_name}_{added_names[orig_name]}.pdf"
+                        else:
+                            added_names[orig_name] = 0
+                            pdf_name = f"{orig_name}.pdf"
+                        
+                        temp_pdf_name = f"{base_name}_{idx}_{orig_name}.pdf"
+                        temp_pdf_path = os.path.join(base_dir, temp_pdf_name)
+                        temp_files.append(temp_pdf_path)
+                        
+                        # Convert this single image
+                        create_pdf_from_images([img_path], temp_pdf_path, paper_size, orientation)
+                        
+                        # Add to ZIP under clean filename
+                        zip_file.write(temp_pdf_path, pdf_name)
+            finally:
+                for temp_file in temp_files:
+                    try:
+                        os.remove(temp_file)
+                    except OSError:
+                        pass
                     
         return output_path
     except Exception as e:

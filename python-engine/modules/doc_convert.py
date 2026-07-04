@@ -35,6 +35,7 @@ def convert_word_to_pdf_com(file_path, output_path, orientation='auto'):
     import comtypes.client
     word = comtypes.client.CreateObject("Word.Application")
     word.Visible = False
+    doc = None
     try:
         doc = word.Documents.Open(abs_input)
         if orientation.lower() == 'landscape':
@@ -43,8 +44,9 @@ def convert_word_to_pdf_com(file_path, output_path, orientation='auto'):
             doc.PageSetup.Orientation = 0
         # 17 represents wdFormatPDF
         doc.SaveAs(abs_output, FileFormat=17)
-        doc.Close()
     finally:
+        if doc is not None:
+            doc.Close()
         word.Quit()
 
 def convert_excel_to_pdf_com(file_path, output_path, orientation='auto'):
@@ -55,6 +57,7 @@ def convert_excel_to_pdf_com(file_path, output_path, orientation='auto'):
     import win32com.client
     excel = win32com.client.Dispatch("Excel.Application")
     excel.Visible = False
+    wb = None
     try:
         wb = excel.Workbooks.Open(abs_input)
         for sheet in wb.Sheets:
@@ -64,8 +67,9 @@ def convert_excel_to_pdf_com(file_path, output_path, orientation='auto'):
                 sheet.PageSetup.Orientation = 1
         # Type=0 represents xlTypePDF
         wb.ExportAsFixedFormat(0, abs_output)
-        wb.Close(False)
     finally:
+        if wb is not None:
+            wb.Close(False)
         excel.Quit()
 
 def _word_to_pdf_reportlab_fallback(file_path, output_path, orientation='auto', layout_mode='fit'):
@@ -240,84 +244,87 @@ def excel_to_pdf_portable(file_path, output_path, orientation='auto', layout_mod
     import openpyxl
     
     wb = openpyxl.load_workbook(file_path, data_only=True)
-    if len(wb.sheetnames) > 20:
-        raise ValueError("Excel file exceeds 20 sheet limit.")
-        
-    pagesize = landscape(letter)
-    if orientation.lower() == 'portrait':
-        pagesize = letter
-        
-    margin = 30
-    if layout_mode.lower() == 'fit':
-        margin = 15
-        
-    doc_template = SimpleDocTemplate(
-        output_path, 
-        pagesize=pagesize,
-        rightMargin=margin, leftMargin=margin, topMargin=margin, bottomMargin=margin
-    )
-    
-    styles = getSampleStyleSheet()
-    story = []
-    
-    title_style = ParagraphStyle(
-        name='SheetTitle', 
-        parent=styles['Heading2'], 
-        fontSize=12, 
-        leading=16,
-        spaceAfter=10
-    )
-    
-    normal_style = ParagraphStyle(
-        name='ExcelNormal',
-        parent=styles['Normal'],
-        fontSize=8,
-        leading=10
-    )
-    
-    for sheet_idx, sheet_name in enumerate(wb.sheetnames):
-        sheet = wb[sheet_name]
-        if sheet_idx > 0:
-            story.append(PageBreak())
+    try:
+        if len(wb.sheetnames) > 20:
+            raise ValueError("Excel file exceeds 20 sheet limit.")
+
+        pagesize = landscape(letter)
+        if orientation.lower() == 'portrait':
+            pagesize = letter
             
-        story.append(Paragraph(f"Sheet: {sheet_name}", title_style))
-        
-        # Read grid data
-        data = []
-        for row in sheet.iter_rows(values_only=True):
-            if not any(row is not None and str(row_cell).strip() for row_cell in row if row_cell is not None):
-                continue # Skip empty row
-            row_data = [str(cell) if cell is not None else "" for cell in row]
-            data.append(row_data)
+        margin = 30
+        if layout_mode.lower() == 'fit':
+            margin = 15
             
-        if not data:
-            story.append(Paragraph("Empty Sheet", styles['Normal']))
-            continue
-            
-        # Chop cols to prevent overflowing width
-        max_cols = 10
-        data_sliced = [r[:max_cols] for r in data]
+        doc_template = SimpleDocTemplate(
+            output_path, 
+            pagesize=pagesize,
+            rightMargin=margin, leftMargin=margin, topMargin=margin, bottomMargin=margin
+        )
         
-        # Wrap strings in Paragraphs to auto-wrap inside table cells
-        wrapped_data = []
-        for r_idx, row_list in enumerate(data_sliced):
-            wrapped_row = []
-            for col_val in row_list:
-                wrapped_row.append(Paragraph(col_val, normal_style))
-            wrapped_data.append(wrapped_row)
-            
-        t = Table(wrapped_data)
-        t.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#0F62FE")),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
-            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
-            ('PADDING', (0,0), (-1,-1), 4),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ]))
-        story.append(t)
+        styles = getSampleStyleSheet()
+        story = []
         
-    doc_template.build(story)
+        title_style = ParagraphStyle(
+            name='SheetTitle', 
+            parent=styles['Heading2'], 
+            fontSize=12, 
+            leading=16,
+            spaceAfter=10
+        )
+        
+        normal_style = ParagraphStyle(
+            name='ExcelNormal',
+            parent=styles['Normal'],
+            fontSize=8,
+            leading=10
+        )
+        
+        for sheet_idx, sheet_name in enumerate(wb.sheetnames):
+            sheet = wb[sheet_name]
+            if sheet_idx > 0:
+                story.append(PageBreak())
+                
+            story.append(Paragraph(f"Sheet: {sheet_name}", title_style))
+            
+            # Read grid data
+            data = []
+            for row in sheet.iter_rows(values_only=True):
+                if not any(row is not None and str(row_cell).strip() for row_cell in row if row_cell is not None):
+                    continue # Skip empty row
+                row_data = [str(cell) if cell is not None else "" for cell in row]
+                data.append(row_data)
+                
+            if not data:
+                story.append(Paragraph("Empty Sheet", styles['Normal']))
+                continue
+                
+            # Chop cols to prevent overflowing width
+            max_cols = 10
+            data_sliced = [r[:max_cols] for r in data]
+            
+            # Wrap strings in Paragraphs to auto-wrap inside table cells
+            wrapped_data = []
+            for r_idx, row_list in enumerate(data_sliced):
+                wrapped_row = []
+                for col_val in row_list:
+                    wrapped_row.append(Paragraph(col_val, normal_style))
+                wrapped_data.append(wrapped_row)
+                
+            t = Table(wrapped_data)
+            t.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#0F62FE")),
+                ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+                ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.lightgrey),
+                ('PADDING', (0,0), (-1,-1), 4),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ]))
+            story.append(t)
+            
+        doc_template.build(story)
+    finally:
+        wb.close()
 
 def word_to_pdf(file_path, output_path, orientation='auto', layout_mode='fit'):
     if COM_AVAILABLE:
@@ -348,9 +355,11 @@ def pdf_to_word(file_path, output_path, mode='flowing', ocr=False):
     assert_pdf_limits(file_path)
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     cv = Converter(file_path)
-    # Convert all pages
-    cv.convert(output_path, start=0, end=None)
-    cv.close()
+    try:
+        # Convert all pages
+        cv.convert(output_path, start=0, end=None)
+    finally:
+        cv.close()
     return output_path
 
 def pdf_to_excel(file_path, output_path, mode='auto', single_sheet=False):
@@ -359,36 +368,38 @@ def pdf_to_excel(file_path, output_path, mode='auto', single_sheet=False):
     
     reader = assert_pdf_limits(file_path)
     wb = openpyxl.Workbook()
-    
-    # Remove default sheet
-    default_sheet = wb.active
-    wb.remove(default_sheet)
-    
-    ws = None
-    if single_sheet:
-        ws = wb.create_sheet(title="Extracted Data")
+    try:
+        # Remove default sheet
+        default_sheet = wb.active
+        wb.remove(default_sheet)
         
-    row_num = 1
-    for idx, page in enumerate(reader.pages):
-        if not single_sheet:
-            ws = wb.create_sheet(title=f"Page {idx+1}")
-            row_num = 1
+        ws = None
+        if single_sheet:
+            ws = wb.create_sheet(title="Extracted Data")
             
-        text = page.extract_text()
-        if not text:
-            continue
-        
-        for line in text.split('\n'):
-            line = line.strip()
-            if not line:
+        row_num = 1
+        for idx, page in enumerate(reader.pages):
+            if not single_sheet:
+                ws = wb.create_sheet(title=f"Page {idx+1}")
+                row_num = 1
+                
+            text = page.extract_text()
+            if not text:
                 continue
-            parts = re.split(r'\t| {2,}', line)
-            for col_num, part in enumerate(parts):
-                ws.cell(row=row_num, column=col_num+1, value=part)
-            row_num += 1
             
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    wb.save(output_path)
+            for line in text.split('\n'):
+                line = line.strip()
+                if not line:
+                    continue
+                parts = re.split(r'\t| {2,}', line)
+                for col_num, part in enumerate(parts):
+                    ws.cell(row=row_num, column=col_num+1, value=part)
+                row_num += 1
+                
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        wb.save(output_path)
+    finally:
+        wb.close()
     return output_path
 
 def pdf_to_ppt(file_path, output_path, slide_size='16:9', vector_mode=False):
@@ -450,12 +461,14 @@ def convert_ppt_to_pdf_com(file_path, output_path):
     
     import win32com.client
     powerpoint = win32com.client.Dispatch("PowerPoint.Application")
+    pres = None
     try:
         pres = powerpoint.Presentations.Open(abs_input, WithWindow=False)
         # ppSaveAsPDF is 32
         pres.SaveAs(abs_output, FileFormat=32)
-        pres.Close()
     finally:
+        if pres is not None:
+            pres.Close()
         powerpoint.Quit()
 
 def _ppt_to_pdf_reportlab_fallback(file_path, output_path, orientation='auto', layout_mode='fit'):

@@ -13,9 +13,10 @@ import { UploadCloud, File, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 const FileRow = ({ file, idx, totalFiles, multiple, onRemove, onMoveUp, onMoveDown, formatSize }) => {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [imgError, setImgError] = useState(false);
+  const fileName = file?.name || 'Untitled file';
 
   useEffect(() => {
-    if (!file.type.startsWith('image/')) return;
+    if (!file?.type?.startsWith('image/')) return;
 
     let active = true;
     const reader = new FileReader();
@@ -42,6 +43,9 @@ const FileRow = ({ file, idx, totalFiles, multiple, onRemove, onMoveUp, onMoveDo
 
     return () => {
       active = false;
+      if (reader.readyState === FileReader.LOADING) {
+        reader.abort();
+      }
     };
   }, [file]);
 
@@ -54,7 +58,7 @@ const FileRow = ({ file, idx, totalFiles, multiple, onRemove, onMoveUp, onMoveDo
         {showThumbnail ? (
           <img
             src={previewUrl}
-            alt={file.name}
+            alt={fileName}
             className="w-full h-full object-cover"
             draggable={false}
             onError={() => setImgError(true)}
@@ -66,10 +70,10 @@ const FileRow = ({ file, idx, totalFiles, multiple, onRemove, onMoveUp, onMoveDo
 
       {/* Name & size */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-slate-800 truncate leading-tight" title={file.name}>
-          {file.name}
+        <p className="text-sm font-semibold text-slate-800 truncate leading-tight" title={fileName}>
+          {fileName}
         </p>
-        <p className="text-xs text-slate-400 mt-0.5 font-medium">{formatSize(file.size)}</p>
+        <p className="text-xs text-slate-400 mt-0.5 font-medium">{formatSize(file?.size)}</p>
       </div>
 
       {/* Action buttons */}
@@ -109,7 +113,7 @@ const FileRow = ({ file, idx, totalFiles, multiple, onRemove, onMoveUp, onMoveDo
   );
 };
 
-const DragDropZone = ({ accept, multiple, files, setFiles, maxFiles }) => {
+const DragDropZone = ({ accept = '*', multiple = false, files = [], setFiles = () => {}, maxFiles }) => {
   const [isDragActive, setIsDragActive] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -127,9 +131,9 @@ const DragDropZone = ({ accept, multiple, files, setFiles, maxFiles }) => {
     const list = Array.from(newFilesList);
 
     // Extensions verification
-    const allowedExts = accept.split(',').map(ext => ext.trim().toLowerCase());
+    const allowedExts = (accept || '*').split(',').map(ext => ext.trim().toLowerCase());
     const filtered = list.filter(file => {
-      const ext = '.' + file.name.split('.').pop().toLowerCase();
+      const ext = '.' + (file?.name || '').split('.').pop().toLowerCase();
       return allowedExts.includes(ext) || accept === '*';
     });
 
@@ -171,7 +175,7 @@ const DragDropZone = ({ accept, multiple, files, setFiles, maxFiles }) => {
 
   const moveFile = (index, direction) => {
     if (!multiple) return;
-    const newFiles = [...files];
+    const newFiles = [...(files || [])];
     const targetIndex = index + direction;
     if (targetIndex < 0 || targetIndex >= files.length) return;
 
@@ -184,11 +188,11 @@ const DragDropZone = ({ accept, multiple, files, setFiles, maxFiles }) => {
 
   const openFileDialog = () => {
     const maxLimit = maxFiles || 20;
-    if (files.length >= maxLimit) {
+    if ((files?.length || 0) >= maxLimit) {
       alert(`Maximum ${maxLimit} files allowed for this tool.`);
       return;
     }
-    fileInputRef.current.click();
+    fileInputRef.current?.click();
   };
 
   const formatSize = (bytes) => {
@@ -206,11 +210,11 @@ const DragDropZone = ({ accept, multiple, files, setFiles, maxFiles }) => {
         onDragOver={handleDrag}
         onDragLeave={handleDrag}
         onDrop={handleDrop}
-        onClick={files.length === 0 ? openFileDialog : undefined}
+        onClick={(files?.length || 0) === 0 ? openFileDialog : undefined}
         className={`w-full border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer flex flex-col items-center justify-center min-h-[280px] ${isDragActive
             ? 'border-primary bg-primary/5 scale-[1.01]'
             : 'border-slate-300 bg-white hover:border-primary/50'
-          } ${files.length > 0 ? 'cursor-default' : ''}`}
+          } ${(files?.length || 0) > 0 ? 'cursor-default' : ''}`}
       >
         <input
           ref={fileInputRef}
@@ -221,7 +225,7 @@ const DragDropZone = ({ accept, multiple, files, setFiles, maxFiles }) => {
           onChange={handleFileChange}
         />
 
-        {files.length === 0 ? (
+        {(files?.length || 0) === 0 ? (
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
               <UploadCloud size={32} />
@@ -249,7 +253,7 @@ const DragDropZone = ({ accept, multiple, files, setFiles, maxFiles }) => {
           <div className="w-full text-left">
             <div className="flex justify-between items-center pb-3 border-b border-slate-100 mb-3">
               <h4 className="font-bold text-slate-800 text-base">
-                Selected Files ({files.length})
+                Selected Files ({files?.length || 0})
               </h4>
               <button
                 type="button"
@@ -261,12 +265,12 @@ const DragDropZone = ({ accept, multiple, files, setFiles, maxFiles }) => {
             </div>
 
             <div className="space-y-2 max-h-[280px] overflow-y-auto pr-0.5">
-              {files.map((file, idx) => (
+              {(files || []).map((file, idx) => (
                 <FileRow
-                  key={`${file.name}-${idx}`}
+                  key={`${file?.name || 'file'}-${idx}`}
                   file={file}
                   idx={idx}
-                  totalFiles={files.length}
+                  totalFiles={files?.length || 0}
                   multiple={multiple}
                   onRemove={removeFile}
                   onMoveUp={(i) => moveFile(i, -1)}
