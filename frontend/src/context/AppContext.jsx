@@ -286,7 +286,7 @@ export const CATEGORIES = [
 
 export const AppProvider = ({ children }) => {
   const [conversionResult, setConversionResult] = useState(null); // { downloadUrl, fileName, size }
-  const [stats, setStats] = useState({ totalConversions: 0 });
+  const [stats, setStats] = useState(null);
   const [hasSelectedFiles, setHasSelectedFiles] = useState(false);
 
   return (

@@ -16,10 +16,14 @@ const Home = () => {
       try {
         const response = await api.get('/analytics');
         if (response.data && response.data.success) {
-          setStats(response.data.data);
+          const data = response.data.data !== undefined ? response.data.data : response.data;
+          setStats(data);
+        } else {
+          setStats({ totalConversions: 5420 });
         }
       } catch (err) {
         console.warn('Analytics endpoint offline, showing simulated metric counter.');
+        setStats({ totalConversions: 5420 });
       }
     };
     fetchStats();
@@ -99,7 +103,14 @@ const Home = () => {
         <div className="mt-4 flex justify-center items-center gap-4 text-[11px] font-bold text-slate-500">
           <span className="flex items-center gap-1"><CheckCircle size={12} className="text-green-500" /> Secure Processing</span>
           <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-          <span className="flex items-center gap-1"><FileText size={12} className="text-primary" /> {stats.totalConversions || '5,420'}+ Files Forged Today</span>
+          <span className="flex items-center gap-1">
+            <FileText size={12} className="text-primary" />
+            {stats === null ? (
+              <span className="w-8 h-3 bg-slate-200 animate-pulse rounded inline-block" />
+            ) : (
+              (stats?.totalConversions || 0).toLocaleString()
+            )}+ Files Forged Today
+          </span>
         </div>
 
         {/* Search Bar */}
