@@ -2,7 +2,7 @@ import React, { createContext, useState, useContext } from 'react';
 
 const AppContext = createContext();
 
-export const TOOLS = [
+const TOOLS = [
   {
     id: 'merge',
     name: 'Merge PDF',
@@ -225,7 +225,7 @@ export const TOOLS = [
   }
 ];
 
-export const CATEGORIES = [
+const CATEGORIES = [
   {
     id: 'organize',
     name: 'Organize PDF',
@@ -305,4 +305,5 @@ export const AppProvider = ({ children }) => {
   );
 };
 
+// eslint-disable-next-line react/only-export-components
 export const useApp = () => useContext(AppContext);
