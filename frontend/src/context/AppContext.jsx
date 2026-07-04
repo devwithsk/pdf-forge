@@ -23,7 +23,7 @@ export const TOOLS = [
     category: 'organize',
     endpoint: '/split',
     accept: '.pdf',
-    multiple: false
+    multiple: true
   },
   {
     id: 'remove-pages',
@@ -56,7 +56,7 @@ export const TOOLS = [
     category: 'edit',
     endpoint: '/rotate',
     accept: '.pdf',
-    multiple: false
+    multiple: true
   },
   {
     id: 'protect',
@@ -67,7 +67,7 @@ export const TOOLS = [
     category: 'security',
     endpoint: '/protect',
     accept: '.pdf',
-    multiple: false
+    multiple: true
   },
   {
     id: 'unlock',
@@ -78,7 +78,7 @@ export const TOOLS = [
     category: 'security',
     endpoint: '/unlock',
     accept: '.pdf',
-    multiple: false
+    multiple: true
   },
   {
     id: 'watermark',
@@ -89,7 +89,7 @@ export const TOOLS = [
     category: 'edit',
     endpoint: '/watermark',
     accept: '.pdf',
-    multiple: false
+    multiple: true
   },
   {
     id: 'pdf2jpg',
@@ -100,7 +100,7 @@ export const TOOLS = [
     category: 'convert-from',
     endpoint: '/pdf2jpg',
     accept: '.pdf',
-    multiple: false
+    multiple: true
   },
   {
     id: 'jpg2pdf',
@@ -122,7 +122,7 @@ export const TOOLS = [
     category: 'convert-to',
     endpoint: '/word2pdf',
     accept: '.docx',
-    multiple: false
+    multiple: true
   },
   {
     id: 'excel2pdf',
@@ -133,7 +133,7 @@ export const TOOLS = [
     category: 'convert-to',
     endpoint: '/excel2pdf',
     accept: '.xlsx',
-    multiple: false
+    multiple: true
   },
   {
     id: 'pdf2word',
@@ -144,7 +144,7 @@ export const TOOLS = [
     category: 'convert-from',
     endpoint: '/pdf2word',
     accept: '.pdf',
-    multiple: false
+    multiple: true
   },
   {
     id: 'pdf2excel',
@@ -155,7 +155,7 @@ export const TOOLS = [
     category: 'convert-from',
     endpoint: '/pdf2excel',
     accept: '.pdf',
-    multiple: false
+    multiple: true
   },
   {
     id: 'pdf2ppt',
@@ -166,7 +166,7 @@ export const TOOLS = [
     category: 'convert-from',
     endpoint: '/pdf2ppt',
     accept: '.pdf',
-    multiple: false
+    multiple: true
   },
   {
     id: 'ppt2pdf',
@@ -177,7 +177,7 @@ export const TOOLS = [
     category: 'convert-to',
     endpoint: '/ppt2pdf',
     accept: '.pptx',
-    multiple: false
+    multiple: true
   },
   {
     id: 'html2pdf',
@@ -188,7 +188,7 @@ export const TOOLS = [
     category: 'convert-to',
     endpoint: '/html2pdf',
     accept: '.html',
-    multiple: false
+    multiple: true
   },
   {
     id: 'compress',
@@ -199,7 +199,7 @@ export const TOOLS = [
     category: 'optimize',
     endpoint: '/compress',
     accept: '.pdf',
-    multiple: false
+    multiple: true
   },
   {
     id: 'repair',
@@ -210,7 +210,7 @@ export const TOOLS = [
     category: 'optimize',
     endpoint: '/repair',
     accept: '.pdf',
-    multiple: false
+    multiple: true
   },
   {
     id: 'numbers',
@@ -221,7 +221,7 @@ export const TOOLS = [
     category: 'edit',
     endpoint: '/add-page-numbers',
     accept: '.pdf',
-    multiple: false
+    multiple: true
   }
 ];
 

@@ -138,6 +138,8 @@ npm run dev
 
 ## ⚙️ Core Modules & Capabilities
 
+All tools (except single-file visual page editors like Remove Pages and Organize PDF) fully support **bulk file processing** (up to 5 files simultaneously). Single processed files are downloaded directly, while multiple files are automatically processed and bundled into a single ZIP archive.
+
 ### Module 1: Basic File Manipulation & Organization
 * **Merge PDF:** Combine multiple PDF documents in a sorted sequence.
 * **Split PDF:** Extract a custom page range or split all pages into individual files bundled in a ZIP.
@@ -165,7 +167,7 @@ npm run dev
 * **PDF to PowerPoint:** Convert PDF pages into editable PowerPoint presentation slides (`.pptx`).
 
 ### Module 5: PDF Optimization & Repair
-* **Compress PDF:** Reduce PDF size using Ghostscript presets with three customizable levels: Extreme (72 dpi), Recommended (150 dpi), or Less (300 dpi) compression (with lossless fallback).
+* **Compress PDF:** Reduce PDF size in bulk (up to 5 files) using Ghostscript presets with three customizable levels: Extreme (72 dpi), Recommended (150 dpi), or Less (300 dpi) compression (with lossless fallback). Multi-file tasks are dynamically zipped into a single archive for the user.
 * **Repair PDF:** Automatically recover, fix, and rebuild corrupted or damaged PDF structures using `pikepdf`.
 
 ---

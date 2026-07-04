@@ -24,6 +24,11 @@ This document details all the new features, capabilities, and optimization updat
   * Added dynamic checks wrapping the conversion modes selector (Merge all images vs individual PDFs); options are auto-hidden if only a single file is uploaded.
 * **Custom Favicon Branding:**
   * Replaced the default React favicon with a customized logo vector icon reflecting the platform's utility purpose.
+* **Global Bulk Upload & Selectors Upgrades:**
+  * Enabled `multiple: true` on all tools (excluding interactive page editor tools: `remove-pages` and `organize-pdf`).
+  * Enforced a max limit of 5 files per task inside file appenders and triggers to preserve memory and speed.
+  * Configured the desktop floating FAB button to show a dynamic Plus (`+`) icon for bulk actions and a Refresh (`RefreshCw`) icon to "Change File" for single-file tools.
+  * Updated the files list workspace header to show a dynamic link: `+ Add More` for bulk tools and `Change File` for single-file tools.
 
 ---
 
@@ -46,6 +51,12 @@ This document details all the new features, capabilities, and optimization updat
 * **Error Sanitizer Engine:**
   * Created a global error message clean-up middleware resolving technical stack traces and path references (such as `/app/backend-api/uploads/...`) to base file names.
   * Password decryption failures are cleaned and simplified to a user-facing `"Failed to decrypt PDF: invalid password"`.
+
+### Generic Bulk Processing Wrapper & ZIP Packaging
+* **Super-Reusable Bulk Job Handler:**
+  * Designed an `executeBulkJob` wrapper function in `pdfController.js` that receives requests with multiple files, processes them in sequence via Python, and packages output files into a single `.zip` file using the Node `archiver` library.
+  * Rewrote all single-file endpoints (`rotate`, `protect`, `unlock`, `watermark`, `repair`, `numbers`, `pdf2jpg`, `split`, and all document conversions) to support both single-file direct download and multi-file ZIP archive download using the new helper.
+  * Configured Express router routes (`pdfRoutes.js`) to support arrays of files (`upload.array('files', 5)`) for bulk uploading.
 
 ---
 
@@ -103,7 +114,9 @@ This document details all the new features, capabilities, and optimization updat
 ### PDF Optimization, Recovery & Formatting
 * **Compress PDF:**
   - Configured `ghostscript` installation inside `Dockerfile` to handle high-fidelity compression.
+  - Upgraded the tool to support **bulk uploads** of up to 5 PDF files.
   - Spawns subprocess command `gs` mapping dynamic levels (`extreme` -> 72 dpi `/screen`, `recommended` -> 150 dpi `/ebook`, `less` -> 300 dpi `/printer`), falling back to basic pypdf stream compression if needed.
+  - Automatically packages multiple outputs into a single downloadable ZIP archive.
 * **Repair PDF:**
   - Implemented recovery wrapper calling `pikepdf.Pdf.open(..., recover=True)` to rebuild broken headers, trailers, or indexes.
 * **Page Numbers:**

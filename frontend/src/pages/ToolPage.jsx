@@ -118,7 +118,7 @@ const ToolPage = () => {
   const { toolId } = useParams();
   const navigate = useNavigate();
   const { tools, setHasSelectedFiles } = useApp();
-  
+
   const [tool, setTool] = useState(null);
   const [files, setFiles] = useState([]);
   const selectedFiles = files;
@@ -148,7 +148,7 @@ const ToolPage = () => {
     const newFiles = [...files];
     const targetIndex = index + direction;
     if (targetIndex < 0 || targetIndex >= files.length) return;
-    
+
     // Swap
     const temp = newFiles[index];
     newFiles[index] = newFiles[targetIndex];
@@ -157,6 +157,11 @@ const ToolPage = () => {
   };
 
   const triggerFileInput = () => {
+    const maxLimit = tool.id === 'compress' ? 5 : 20;
+    if (files.length >= maxLimit) {
+      alert(`Maximum ${maxLimit} files allowed for this tool.`);
+      return;
+    }
     if (fileInputRef.current) {
       fileInputRef.current.click();
     }
@@ -174,7 +179,15 @@ const ToolPage = () => {
       if (filtered.length === 0) return;
 
       if (tool.multiple) {
-        setFiles((prev) => [...prev, ...filtered]);
+        const maxLimit = tool.id === 'compress' ? 5 : 20;
+        setFiles((prev) => {
+          const combined = [...prev, ...filtered];
+          if (combined.length > maxLimit) {
+            alert(`Maximum ${maxLimit} files allowed for this tool.`);
+            return combined.slice(0, maxLimit);
+          }
+          return combined;
+        });
       } else {
         setFiles([filtered[0]]);
       }
@@ -254,7 +267,7 @@ const ToolPage = () => {
       setWatermarkFontSize('40');
       setWatermarkOpacity('0.3');
       setWatermarkColor('#888888');
-      
+
       // Reset new states
       setPdfToImgFormat('jpg');
       setPdfToImgDpi('150');
@@ -303,7 +316,7 @@ const ToolPage = () => {
     }
 
     const formData = new FormData();
-    
+
     // Append tool specific fields first
     if (tool.id === 'protect' || tool.id === 'unlock') {
       formData.append('password', password);
@@ -449,23 +462,23 @@ const ToolPage = () => {
       const backendUrl = api.defaults.baseURL
         ? (api.defaults.baseURL.endsWith('/api') ? api.defaults.baseURL.slice(0, -4) : api.defaults.baseURL)
         : '';
-      
+
       const fileUrl = `${backendUrl}${successResult.downloadUrl}`;
-      
+
       const response = await api.get(fileUrl, {
         responseType: 'blob',
       });
-      
+
       const blob = response.data;
       const objectUrl = window.URL.createObjectURL(blob);
-      
+
       const link = document.createElement('a');
       link.href = objectUrl;
       link.setAttribute('download', successResult.fileName || 'forged-document.pdf');
-      
+
       document.body.appendChild(link);
       link.click();
-      
+
       document.body.removeChild(link);
       window.URL.revokeObjectURL(objectUrl);
     } catch (err) {
@@ -630,7 +643,7 @@ const ToolPage = () => {
                 <option value="Auto">Auto (Same size as image)</option>
               </select>
             </div>
-            
+
             <div>
               <label className="block text-[11px] font-bold text-slate-600 uppercase mb-2">Page Orientation</label>
               <div className="flex gap-4 p-2 bg-white border border-slate-200 rounded-xl h-[46px] items-center">
@@ -950,7 +963,7 @@ const ToolPage = () => {
       {/* Workspace Container */}
       <div className={`${showDesktopSplit ? 'max-w-7xl lg:flex-grow lg:min-h-0 lg:my-2 w-full' : 'max-w-3xl my-8'} mx-auto`}>
         <div className={`bg-white border border-slate-200/80 rounded-3xl shadow-premium ${showDesktopSplit ? 'p-0 lg:h-full overflow-hidden' : 'p-6 md:p-8'}`}>
-          
+
           {successResult ? (
             <div className="flex flex-col items-center text-center py-6 p-6 md:p-8">
               {/* Success Badge */}
@@ -1108,11 +1121,10 @@ const ToolPage = () => {
                         <button
                           type="submit"
                           disabled={files.length === 0 || (isPageTool && pageOrder.length === 0)}
-                          className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer ${
-                            files.length > 0 && (!isPageTool || pageOrder.length > 0)
+                          className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer ${files.length > 0 && (!isPageTool || pageOrder.length > 0)
                               ? 'bg-primary text-white hover:bg-primary-dark shadow-primary/20 hover:scale-[1.01]'
                               : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
-                          }`}
+                            }`}
                         >
                           <Check size={16} /> Process Document
                         </button>
@@ -1144,6 +1156,7 @@ const ToolPage = () => {
                       multiple={tool.multiple}
                       files={files}
                       setFiles={setFiles}
+                      maxFiles={tool.id === 'compress' ? 5 : 20}
                     />
 
                     {/* Tool specific parameters form panels */}
@@ -1161,11 +1174,10 @@ const ToolPage = () => {
                       type="submit"
                       onClick={handleSubmit}
                       disabled={files.length === 0 || (isPageTool && pageOrder.length === 0)}
-                      className={`relative z-10 w-full py-4 rounded-2xl font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer ${
-                        files.length > 0 && (!isPageTool || pageOrder.length > 0)
+                      className={`relative z-10 w-full py-4 rounded-2xl font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer ${files.length > 0 && (!isPageTool || pageOrder.length > 0)
                           ? 'bg-primary text-white hover:bg-primary-dark shadow-primary/20 hover:scale-[1.01]'
                           : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
-                      }`}
+                        }`}
                     >
                       <Check size={16} /> Process Document
                     </button>

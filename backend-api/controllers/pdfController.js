@@ -2,11 +2,128 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
+const archiver = require('archiver');
 const Analytics = require('../models/Analytics');
 const ErrorLog = require('../models/ErrorLog');
 const PQueueModule = require('p-queue');
 const PQueue = PQueueModule.default || PQueueModule;
 const { createDownloadToken } = require('../utils/downloadStore');
+
+// Helper to zip files using archiver
+const zipFiles = (filesList, zipPath) => {
+  return new Promise((resolve, reject) => {
+    const output = fs.createWriteStream(zipPath);
+    const archive = archiver('zip', {
+      zlib: { level: 9 } // Sets the compression level.
+    });
+
+    output.on('close', () => {
+      resolve();
+    });
+
+    archive.on('error', (err) => {
+      reject(err);
+    });
+
+    archive.pipe(output);
+
+    filesList.forEach(file => {
+      archive.file(file.path, { name: file.name });
+    });
+
+    archive.finalize();
+  });
+};
+
+// Helper to handle bulk job operations dynamically
+const executeBulkJob = async (req, res, {
+  toolName,
+  scriptName,
+  pythonAction,
+  outputExt = '.pdf',
+  getExtraParams = (req, fileIndex) => ({})
+}) => {
+  const startTime = Date.now();
+  const files = req.files || (req.file ? [req.file] : []);
+  if (files.length === 0) {
+    return res.status(400).json({ success: false, error: `Please upload at least one file.` });
+  }
+  
+  const totalFiles = files.length;
+  const fileSize = files.reduce((acc, f) => acc + f.size, 0);
+  const { jobDir, inputPaths } = initJob(req);
+  
+  try {
+    if (totalFiles === 1) {
+      const outputFileName = `${toolName}-${uuidv4()}${outputExt}`;
+      const outputPath = path.join(jobDir, outputFileName);
+      
+      const payload = {
+        action: pythonAction,
+        file: inputPaths[0],
+        output: outputPath,
+        ...getExtraParams(req, 0)
+      };
+      
+      const resultPath = await executePython(scriptName, payload);
+      
+      await logAnalytics(toolName, 1, fileSize, 'success', startTime);
+      const token = createDownloadToken(resultPath, outputFileName);
+      
+      res.json({
+        success: true,
+        downloadUrl: `/download/${token}`,
+        fileName: outputFileName,
+        size: fs.statSync(resultPath).size
+      });
+    } else {
+      const processedFiles = [];
+      for (let i = 0; i < inputPaths.length; i++) {
+        const inputPath = inputPaths[i];
+        const originalFileObj = files[i];
+        const originalName = path.basename(originalFileObj.originalname, path.extname(originalFileObj.originalname));
+        
+        const outputFileName = `${originalName}-${toolName}-${uuidv4()}${outputExt}`;
+        const outputPath = path.join(jobDir, outputFileName);
+        
+        const payload = {
+          action: pythonAction,
+          file: inputPath,
+          output: outputPath,
+          ...getExtraParams(req, i)
+        };
+        
+        const resultPath = await executePython(scriptName, payload);
+        
+        processedFiles.push({
+          path: resultPath,
+          name: `${originalName}-${toolName}${outputExt}`
+        });
+      }
+      
+      const zipFileName = `${toolName}-results-${uuidv4()}.zip`;
+      const zipPath = path.join(jobDir, zipFileName);
+      
+      await zipFiles(processedFiles, zipPath);
+      
+      await logAnalytics(toolName, totalFiles, fileSize, 'success', startTime);
+      const token = createDownloadToken(zipPath, zipFileName);
+      
+      res.json({
+        success: true,
+        downloadUrl: `/download/${token}`,
+        fileName: zipFileName,
+        size: fs.statSync(zipPath).size
+      });
+    }
+  } catch (err) {
+    await logAnalytics(toolName, totalFiles, fileSize, 'failed', startTime, err.message, err.stack);
+    cleanupJob(jobDir, inputPaths, false);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    cleanupJob(jobDir, inputPaths, true);
+  }
+};
 
 // Helper to isolate uploaded files inside request-specific job directories
 const moveFileToJobDir = (file, jobDir) => {
@@ -336,36 +453,76 @@ exports.mergePDF = async (req, res) => {
 
 exports.splitPDF = async (req, res) => {
   const startTime = Date.now();
-  if (!req.file) {
-    return res.status(400).json({ success: false, error: 'Please upload a PDF file to split.' });
+  const files = req.files || (req.file ? [req.file] : []);
+  if (files.length === 0) {
+    return res.status(400).json({ success: false, error: 'Please upload at least one PDF file.' });
   }
   
-  const { splitMode, range } = req.body; // 'all' or 'range'
-  const fileSize = req.file.size;
+  const splitMode = req.body.splitMode || 'all';
+  const range = req.body.range || '';
+  const totalFiles = files.length;
+  const fileSize = files.reduce((acc, f) => acc + f.size, 0);
   const { jobDir, inputPaths } = initJob(req);
   
   try {
-    const resultPath = await executePython('basic_manipulation.py', {
-      action: 'split',
-      file: inputPaths[0],
-      output_dir: jobDir,
-      split_mode: splitMode || 'all',
-      range: range || ''
-    });
-    
-    const outputFileName = path.basename(resultPath);
-    
-    await logAnalytics('split', 1, fileSize, 'success', startTime);
-    const token = createDownloadToken(resultPath, outputFileName);
-    
-    res.json({
-      success: true,
-      downloadUrl: `/download/${token}`,
-      fileName: outputFileName,
-      size: fs.statSync(resultPath).size
-    });
+    if (totalFiles === 1) {
+      const resultPath = await executePython('basic_manipulation.py', {
+        action: 'split',
+        file: inputPaths[0],
+        output_dir: jobDir,
+        split_mode: splitMode,
+        range: range
+      });
+      
+      const outputFileName = path.basename(resultPath);
+      await logAnalytics('split', 1, fileSize, 'success', startTime);
+      const token = createDownloadToken(resultPath, outputFileName);
+      
+      res.json({
+        success: true,
+        downloadUrl: `/download/${token}`,
+        fileName: outputFileName,
+        size: fs.statSync(resultPath).size
+      });
+    } else {
+      const processedFiles = [];
+      
+      for (let i = 0; i < inputPaths.length; i++) {
+        const inputPath = inputPaths[i];
+        const subDir = path.join(jobDir, `file-${i}`);
+        fs.mkdirSync(subDir, { recursive: true });
+        
+        const resultPath = await executePython('basic_manipulation.py', {
+          action: 'split',
+          file: inputPath,
+          output_dir: subDir,
+          split_mode: splitMode,
+          range: range
+        });
+        
+        processedFiles.push({
+          path: resultPath,
+          name: path.basename(resultPath)
+        });
+      }
+      
+      const zipFileName = `split-results-${uuidv4()}.zip`;
+      const zipPath = path.join(jobDir, zipFileName);
+      
+      await zipFiles(processedFiles, zipPath);
+      
+      await logAnalytics('split', totalFiles, fileSize, 'success', startTime);
+      const token = createDownloadToken(zipPath, zipFileName);
+      
+      res.json({
+        success: true,
+        downloadUrl: `/download/${token}`,
+        fileName: zipFileName,
+        size: fs.statSync(zipPath).size
+      });
+    }
   } catch (err) {
-    await logAnalytics('split', 1, fileSize, 'failed', startTime, err.message, err.stack);
+    await logAnalytics('split', totalFiles, fileSize, 'failed', startTime, err.message, err.stack);
     cleanupJob(jobDir, inputPaths, false);
     res.status(500).json({ success: false, error: err.message });
   } finally {
@@ -374,53 +531,30 @@ exports.splitPDF = async (req, res) => {
 };
 
 exports.rotatePDF = async (req, res) => {
-  const startTime = Date.now();
-  if (!req.file) {
-    return res.status(400).json({ success: false, error: 'Please upload a PDF file to rotate.' });
-  }
-  
   const degrees = parseInt(req.body.degrees) || 90;
-  const fileSize = req.file.size;
-  const { jobDir, inputPaths } = initJob(req);
-  const outputFileName = `rotated-${uuidv4()}.pdf`;
-  const outputPath = path.join(jobDir, outputFileName);
-  
-  try {
-    const resultPath = await executePython('basic_manipulation.py', {
-      action: 'rotate',
-      file: inputPaths[0],
-      output: outputPath,
+  return executeBulkJob(req, res, {
+    toolName: 'rotate',
+    scriptName: 'basic_manipulation.py',
+    pythonAction: 'rotate',
+    getExtraParams: (req) => ({
       degrees: degrees
-    });
-    
-    await logAnalytics('rotate', 1, fileSize, 'success', startTime);
-    const token = createDownloadToken(resultPath, outputFileName);
-    
-    res.json({
-      success: true,
-      downloadUrl: `/download/${token}`,
-      fileName: outputFileName,
-      size: fs.statSync(resultPath).size
-    });
-  } catch (err) {
-    await logAnalytics('rotate', 1, fileSize, 'failed', startTime, err.message, err.stack);
-    cleanupJob(jobDir, inputPaths, false);
-    res.status(500).json({ success: false, error: err.message });
-  } finally {
-    cleanupJob(jobDir, inputPaths, true);
-  }
+    })
+  });
 };
 
 exports.compressPDF = async (req, res) => {
   const startTime = Date.now();
-  if (!req.file) {
-    return res.status(400).json({ success: false, error: 'Please upload a PDF file to compress.' });
+  
+  // Support both single file and multiple files
+  const files = req.files || (req.file ? [req.file] : []);
+  if (files.length === 0) {
+    return res.status(400).json({ success: false, error: 'Please upload at least one PDF file to compress.' });
   }
   
-  const fileSize = req.file.size;
+  const totalFiles = files.length;
+  const fileSize = files.reduce((acc, f) => acc + f.size, 0);
   const { jobDir, inputPaths } = initJob(req);
-  const outputFileName = `compressed-${uuidv4()}.pdf`;
-  const outputPath = path.join(jobDir, outputFileName);
+  
   let settings = {};
   if (req.body.settings) {
     try {
@@ -433,24 +567,67 @@ exports.compressPDF = async (req, res) => {
   const compressionLevel = settings.compressionLevel || 'recommended';
   
   try {
-    const resultPath = await executePython('basic_manipulation.py', {
-      action: 'compress',
-      file: inputPaths[0],
-      output: outputPath,
-      compression_level: compressionLevel
-    });
-    
-    await logAnalytics('compress', 1, fileSize, 'success', startTime);
-    const token = createDownloadToken(resultPath, outputFileName);
-    
-    res.json({
-      success: true,
-      downloadUrl: `/download/${token}`,
-      fileName: outputFileName,
-      size: fs.statSync(resultPath).size
-    });
+    if (totalFiles === 1) {
+      const outputFileName = `compressed-${uuidv4()}.pdf`;
+      const outputPath = path.join(jobDir, outputFileName);
+      
+      const resultPath = await executePython('basic_manipulation.py', {
+        action: 'compress',
+        file: inputPaths[0],
+        output: outputPath,
+        compression_level: compressionLevel
+      });
+      
+      await logAnalytics('compress', 1, fileSize, 'success', startTime);
+      const token = createDownloadToken(resultPath, outputFileName);
+      
+      res.json({
+        success: true,
+        downloadUrl: `/download/${token}`,
+        fileName: outputFileName,
+        size: fs.statSync(resultPath).size
+      });
+    } else {
+      const compressedFiles = [];
+      
+      for (let i = 0; i < inputPaths.length; i++) {
+        const inputPath = inputPaths[i];
+        const originalFileObj = files[i];
+        const originalName = path.basename(originalFileObj.originalname, '.pdf');
+        
+        const compressedFileName = `${originalName}-compressed-${uuidv4()}.pdf`;
+        const compressedPath = path.join(jobDir, compressedFileName);
+        
+        await executePython('basic_manipulation.py', {
+          action: 'compress',
+          file: inputPath,
+          output: compressedPath,
+          compression_level: compressionLevel
+        });
+        
+        compressedFiles.push({
+          path: compressedPath,
+          name: `${originalName}-compressed.pdf`
+        });
+      }
+      
+      const zipFileName = `compressed-pdfs-${uuidv4()}.zip`;
+      const zipPath = path.join(jobDir, zipFileName);
+      
+      await zipFiles(compressedFiles, zipPath);
+      
+      await logAnalytics('compress', totalFiles, fileSize, 'success', startTime);
+      const token = createDownloadToken(zipPath, zipFileName);
+      
+      res.json({
+        success: true,
+        downloadUrl: `/download/${token}`,
+        fileName: zipFileName,
+        size: fs.statSync(zipPath).size
+      });
+    }
   } catch (err) {
-    await logAnalytics('compress', 1, fileSize, 'failed', startTime, err.message, err.stack);
+    await logAnalytics('compress', totalFiles, fileSize, 'failed', startTime, err.message, err.stack);
     cleanupJob(jobDir, inputPaths, false);
     res.status(500).json({ success: false, error: err.message });
   } finally {
@@ -459,177 +636,56 @@ exports.compressPDF = async (req, res) => {
 };
 
 exports.repairPDF = async (req, res) => {
-  const startTime = Date.now();
-  if (!req.file) {
-    return res.status(400).json({ success: false, error: 'Please upload a PDF file to repair.' });
-  }
-  
-  const fileSize = req.file.size;
-  const { jobDir, inputPaths } = initJob(req);
-  const outputFileName = `repaired-${uuidv4()}.pdf`;
-  const outputPath = path.join(jobDir, outputFileName);
-  
-  try {
-    const resultPath = await executePython('basic_manipulation.py', {
-      action: 'repair',
-      file: inputPaths[0],
-      output: outputPath
-    });
-    
-    await logAnalytics('repair', 1, fileSize, 'success', startTime);
-    const token = createDownloadToken(resultPath, outputFileName);
-    
-    res.json({
-      success: true,
-      downloadUrl: `/download/${token}`,
-      fileName: outputFileName,
-      size: fs.statSync(resultPath).size
-    });
-  } catch (err) {
-    await logAnalytics('repair', 1, fileSize, 'failed', startTime, err.message, err.stack);
-    cleanupJob(jobDir, inputPaths, false);
-    res.status(500).json({ success: false, error: err.message });
-  } finally {
-    cleanupJob(jobDir, inputPaths, true);
-  }
+  return executeBulkJob(req, res, {
+    toolName: 'repair',
+    scriptName: 'basic_manipulation.py',
+    pythonAction: 'repair'
+  });
 };
 
 exports.protectPDF = async (req, res) => {
-  const startTime = Date.now();
-  if (!req.file) {
-    return res.status(400).json({ success: false, error: 'Please upload a PDF file to protect.' });
-  }
-  
   const { password } = req.body;
   if (!password) {
-    if (req.file && fs.existsSync(req.file.path)) {
-      try { fs.unlinkSync(req.file.path); } catch (e) {}
-    }
     return res.status(400).json({ success: false, error: 'Password is required to encrypt the PDF.' });
   }
-  
-  const fileSize = req.file.size;
-  const { jobDir, inputPaths } = initJob(req);
-  const outputFileName = `protected-${uuidv4()}.pdf`;
-  const outputPath = path.join(jobDir, outputFileName);
-  
-  try {
-    const resultPath = await executePython('security.py', {
-      action: 'protect',
-      file: inputPaths[0],
-      output: outputPath,
+  return executeBulkJob(req, res, {
+    toolName: 'protect',
+    scriptName: 'security.py',
+    pythonAction: 'protect',
+    getExtraParams: (req) => ({
       password: password
-    });
-    
-    await logAnalytics('protect', 1, fileSize, 'success', startTime);
-    const token = createDownloadToken(resultPath, outputFileName);
-    
-    res.json({
-      success: true,
-      downloadUrl: `/download/${token}`,
-      fileName: outputFileName,
-      size: fs.statSync(resultPath).size
-    });
-  } catch (err) {
-    await logAnalytics('protect', 1, fileSize, 'failed', startTime, err.message, err.stack);
-    cleanupJob(jobDir, inputPaths, false);
-    res.status(500).json({ success: false, error: err.message });
-  } finally {
-    cleanupJob(jobDir, inputPaths, true);
-  }
+    })
+  });
 };
 
 exports.unlockPDF = async (req, res) => {
-  const startTime = Date.now();
-  if (!req.file) {
-    return res.status(400).json({ success: false, error: 'Please upload a PDF file to unlock.' });
-  }
-  
   const { password } = req.body;
-  const fileSize = req.file.size;
-  const { jobDir, inputPaths } = initJob(req);
-  const outputFileName = `unlocked-${uuidv4()}.pdf`;
-  const outputPath = path.join(jobDir, outputFileName);
-  
-  try {
-    const resultPath = await executePython('security.py', {
-      action: 'unlock',
-      file: inputPaths[0],
-      output: outputPath,
+  return executeBulkJob(req, res, {
+    toolName: 'unlock',
+    scriptName: 'security.py',
+    pythonAction: 'unlock',
+    getExtraParams: (req) => ({
       password: password || ''
-    });
-    
-    await logAnalytics('unlock', 1, fileSize, 'success', startTime);
-    const token = createDownloadToken(resultPath, outputFileName);
-    
-    res.json({
-      success: true,
-      downloadUrl: `/download/${token}`,
-      fileName: outputFileName,
-      size: fs.statSync(resultPath).size
-    });
-  } catch (err) {
-    await logAnalytics('unlock', 1, fileSize, 'failed', startTime, err.message, err.stack);
-    cleanupJob(jobDir, inputPaths, false);
-    const friendlyError = sanitizeErrorMessage(err.message, req);
-    res.status(500).json({ success: false, error: friendlyError });
-  } finally {
-    cleanupJob(jobDir, inputPaths, true);
-  }
+    })
+  });
 };
 
 exports.watermarkPDF = async (req, res) => {
-  const startTime = Date.now();
-  if (!req.file) {
-    return res.status(400).json({ success: false, error: 'Please upload a PDF file.' });
-  }
-  
   const { text, fontSize, opacity, color } = req.body;
-  const fileSize = req.file.size;
-  const { jobDir, inputPaths } = initJob(req);
-  const outputFileName = `watermarked-${uuidv4()}.pdf`;
-  const outputPath = path.join(jobDir, outputFileName);
-  
-  try {
-    const resultPath = await executePython('security.py', {
-      action: 'watermark',
-      file: inputPaths[0],
-      output: outputPath,
+  return executeBulkJob(req, res, {
+    toolName: 'watermark',
+    scriptName: 'security.py',
+    pythonAction: 'watermark',
+    getExtraParams: (req) => ({
       text: text || 'CONFIDENTIAL',
       font_size: parseInt(fontSize) || 40,
       opacity: parseFloat(opacity) || 0.3,
       color: color || '#888888'
-    });
-    
-    await logAnalytics('watermark', 1, fileSize, 'success', startTime);
-    const token = createDownloadToken(resultPath, outputFileName);
-    
-    res.json({
-      success: true,
-      downloadUrl: `/download/${token}`,
-      fileName: outputFileName,
-      size: fs.statSync(resultPath).size
-    });
-  } catch (err) {
-    await logAnalytics('watermark', 1, fileSize, 'failed', startTime, err.message, err.stack);
-    cleanupJob(jobDir, inputPaths, false);
-    res.status(500).json({ success: false, error: err.message });
-  } finally {
-    cleanupJob(jobDir, inputPaths, true);
-  }
+    })
+  });
 };
 
 exports.addPageNumbers = async (req, res) => {
-  const startTime = Date.now();
-  if (!req.file) {
-    return res.status(400).json({ success: false, error: 'Please upload a PDF file.' });
-  }
-  
-  const fileSize = req.file.size;
-  const { jobDir, inputPaths } = initJob(req);
-  const outputFileName = `numbered-${uuidv4()}.pdf`;
-  const outputPath = path.join(jobDir, outputFileName);
-  
   let settings = {};
   if (req.body.settings) {
     try {
@@ -642,40 +698,26 @@ exports.addPageNumbers = async (req, res) => {
   const position = settings.position || 'bottom_center';
   const startingNumber = parseInt(settings.startingNumber) || 1;
   
-  try {
-    const resultPath = await executePython('basic_manipulation.py', {
-      action: 'numbers',
-      file: inputPaths[0],
-      output: outputPath,
+  return executeBulkJob(req, res, {
+    toolName: 'numbers',
+    scriptName: 'basic_manipulation.py',
+    pythonAction: 'numbers',
+    getExtraParams: (req) => ({
       position: position,
       starting_number: startingNumber
-    });
-    
-    await logAnalytics('numbers', 1, fileSize, 'success', startTime);
-    const token = createDownloadToken(resultPath, outputFileName);
-    
-    res.json({
-      success: true,
-      downloadUrl: `/download/${token}`,
-      fileName: outputFileName,
-      size: fs.statSync(resultPath).size
-    });
-  } catch (err) {
-    await logAnalytics('numbers', 1, fileSize, 'failed', startTime, err.message, err.stack);
-    cleanupJob(jobDir, inputPaths, false);
-    res.status(500).json({ success: false, error: err.message });
-  } finally {
-    cleanupJob(jobDir, inputPaths, true);
-  }
+    })
+  });
 };
 
 exports.pdfToJpg = async (req, res) => {
   const startTime = Date.now();
-  if (!req.file) {
-    return res.status(400).json({ success: false, error: 'Please upload a PDF file.' });
+  const files = req.files || (req.file ? [req.file] : []);
+  if (files.length === 0) {
+    return res.status(400).json({ success: false, error: 'Please upload at least one PDF file.' });
   }
   
-  const fileSize = req.file.size;
+  const totalFiles = files.length;
+  const fileSize = files.reduce((acc, f) => acc + f.size, 0);
   const { jobDir, inputPaths } = initJob(req);
   
   let settings = {};
@@ -692,28 +734,69 @@ exports.pdfToJpg = async (req, res) => {
   const quality = parseInt(settings.quality) || 82;
   
   try {
-    const resultPath = await executePython('image_convert.py', {
-      action: 'pdf2jpg',
-      file: inputPaths[0],
-      output_dir: jobDir,
-      format: format,
-      dpi: dpi,
-      quality: quality
-    });
-    
-    const outputFileName = path.basename(resultPath);
-    
-    await logAnalytics('pdf2jpg', 1, fileSize, 'success', startTime);
-    const token = createDownloadToken(resultPath, outputFileName);
-    
-    res.json({
-      success: true,
-      downloadUrl: `/download/${token}`,
-      fileName: outputFileName,
-      size: fs.statSync(resultPath).size
-    });
+    if (totalFiles === 1) {
+      const resultPath = await executePython('image_convert.py', {
+        action: 'pdf2jpg',
+        file: inputPaths[0],
+        output_dir: jobDir,
+        format: format,
+        dpi: dpi,
+        quality: quality
+      });
+      
+      const outputFileName = path.basename(resultPath);
+      await logAnalytics('pdf2jpg', 1, fileSize, 'success', startTime);
+      const token = createDownloadToken(resultPath, outputFileName);
+      
+      res.json({
+        success: true,
+        downloadUrl: `/download/${token}`,
+        fileName: outputFileName,
+        size: fs.statSync(resultPath).size
+      });
+    } else {
+      const processedFiles = [];
+      
+      for (let i = 0; i < inputPaths.length; i++) {
+        const inputPath = inputPaths[i];
+        const originalFileObj = files[i];
+        const originalName = path.basename(originalFileObj.originalname, '.pdf');
+        
+        const subDir = path.join(jobDir, `file-${i}`);
+        fs.mkdirSync(subDir, { recursive: true });
+        
+        const resultPath = await executePython('image_convert.py', {
+          action: 'pdf2jpg',
+          file: inputPath,
+          output_dir: subDir,
+          format: format,
+          dpi: dpi,
+          quality: quality
+        });
+        
+        processedFiles.push({
+          path: resultPath,
+          name: path.basename(resultPath)
+        });
+      }
+      
+      const zipFileName = `pdf2jpg-results-${uuidv4()}.zip`;
+      const zipPath = path.join(jobDir, zipFileName);
+      
+      await zipFiles(processedFiles, zipPath);
+      
+      await logAnalytics('pdf2jpg', totalFiles, fileSize, 'success', startTime);
+      const token = createDownloadToken(zipPath, zipFileName);
+      
+      res.json({
+        success: true,
+        downloadUrl: `/download/${token}`,
+        fileName: zipFileName,
+        size: fs.statSync(zipPath).size
+      });
+    }
   } catch (err) {
-    await logAnalytics('pdf2jpg', 1, fileSize, 'failed', startTime, err.message, err.stack);
+    await logAnalytics('pdf2jpg', totalFiles, fileSize, 'failed', startTime, err.message, err.stack);
     cleanupJob(jobDir, inputPaths, false);
     res.status(500).json({ success: false, error: err.message });
   } finally {
@@ -775,325 +858,101 @@ exports.jpgToPdf = async (req, res) => {
 };
 
 exports.wordToPdf = async (req, res) => {
-  const startTime = Date.now();
-  if (!req.file) {
-    return res.status(400).json({ success: false, error: 'Please upload a Word file (.docx).' });
-  }
-  
-  const fileSize = req.file.size;
-  const { jobDir, inputPaths } = initJob(req);
-  const outputFileName = `docx-${uuidv4()}.pdf`;
-  const outputPath = path.join(jobDir, outputFileName);
-  
   let settings = {};
   if (req.body.settings) {
-    try {
-      settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings;
-    } catch (e) {
-      console.error('Failed to parse settings:', e);
-    }
+    try { settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings; } catch (e) {}
   }
-  
-  try {
-    const resultPath = await executePython('doc_convert.py', {
-      action: 'word2pdf',
-      file: inputPaths[0],
-      output: outputPath,
-      settings: settings
-    });
-    
-    await logAnalytics('word2pdf', 1, fileSize, 'success', startTime);
-    const token = createDownloadToken(resultPath, outputFileName);
-    
-    res.json({
-      success: true,
-      downloadUrl: `/download/${token}`,
-      fileName: outputFileName,
-      size: fs.statSync(resultPath).size
-    });
-  } catch (err) {
-    await logAnalytics('word2pdf', 1, fileSize, 'failed', startTime, err.message, err.stack);
-    cleanupJob(jobDir, inputPaths, false);
-    res.status(500).json({ success: false, error: err.message });
-  } finally {
-    cleanupJob(jobDir, inputPaths, true);
-  }
+  return executeBulkJob(req, res, {
+    toolName: 'word2pdf',
+    scriptName: 'doc_convert.py',
+    pythonAction: 'word2pdf',
+    outputExt: '.pdf',
+    getExtraParams: (req) => ({ settings })
+  });
 };
 
 exports.excelToPdf = async (req, res) => {
-  const startTime = Date.now();
-  if (!req.file) {
-    return res.status(400).json({ success: false, error: 'Please upload an Excel file (.xlsx).' });
-  }
-  
-  const fileSize = req.file.size;
-  const { jobDir, inputPaths } = initJob(req);
-  const outputFileName = `xlsx-${uuidv4()}.pdf`;
-  const outputPath = path.join(jobDir, outputFileName);
-  
   let settings = {};
   if (req.body.settings) {
-    try {
-      settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings;
-    } catch (e) {
-      console.error('Failed to parse settings:', e);
-    }
+    try { settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings; } catch (e) {}
   }
-  
-  try {
-    const resultPath = await executePython('doc_convert.py', {
-      action: 'excel2pdf',
-      file: inputPaths[0],
-      output: outputPath,
-      settings: settings
-    });
-    
-    await logAnalytics('excel2pdf', 1, fileSize, 'success', startTime);
-    const token = createDownloadToken(resultPath, outputFileName);
-    
-    res.json({
-      success: true,
-      downloadUrl: `/download/${token}`,
-      fileName: outputFileName,
-      size: fs.statSync(resultPath).size
-    });
-  } catch (err) {
-    await logAnalytics('excel2pdf', 1, fileSize, 'failed', startTime, err.message, err.stack);
-    cleanupJob(jobDir, inputPaths, false);
-    res.status(500).json({ success: false, error: err.message });
-  } finally {
-    cleanupJob(jobDir, inputPaths, true);
-  }
+  return executeBulkJob(req, res, {
+    toolName: 'excel2pdf',
+    scriptName: 'doc_convert.py',
+    pythonAction: 'excel2pdf',
+    outputExt: '.pdf',
+    getExtraParams: (req) => ({ settings })
+  });
 };
 
 exports.pdfToWord = async (req, res) => {
-  const startTime = Date.now();
-  if (!req.file) {
-    return res.status(400).json({ success: false, error: 'Please upload a PDF file.' });
-  }
-  
-  const fileSize = req.file.size;
-  const { jobDir, inputPaths } = initJob(req);
-  const outputFileName = `converted-${uuidv4()}.docx`;
-  const outputPath = path.join(jobDir, outputFileName);
-  
   let settings = {};
   if (req.body.settings) {
-    try {
-      settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings;
-    } catch (e) {
-      console.error('Failed to parse settings:', e);
-    }
+    try { settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings; } catch (e) {}
   }
-  
-  try {
-    const resultPath = await executePython('doc_convert.py', {
-      action: 'pdf2word',
-      file: inputPaths[0],
-      output: outputPath,
-      settings: settings
-    });
-    
-    await logAnalytics('pdf2word', 1, fileSize, 'success', startTime);
-    const token = createDownloadToken(resultPath, outputFileName);
-    
-    res.json({
-      success: true,
-      downloadUrl: `/download/${token}`,
-      fileName: outputFileName,
-      size: fs.statSync(resultPath).size
-    });
-  } catch (err) {
-    await logAnalytics('pdf2word', 1, fileSize, 'failed', startTime, err.message, err.stack);
-    cleanupJob(jobDir, inputPaths, false);
-    res.status(500).json({ success: false, error: err.message });
-  } finally {
-    cleanupJob(jobDir, inputPaths, true);
-  }
+  return executeBulkJob(req, res, {
+    toolName: 'pdf2word',
+    scriptName: 'doc_convert.py',
+    pythonAction: 'pdf2word',
+    outputExt: '.docx',
+    getExtraParams: (req) => ({ settings })
+  });
 };
 
 exports.pdfToExcel = async (req, res) => {
-  const startTime = Date.now();
-  if (!req.file) {
-    return res.status(400).json({ success: false, error: 'Please upload a PDF file.' });
-  }
-  
-  const fileSize = req.file.size;
-  const { jobDir, inputPaths } = initJob(req);
-  const outputFileName = `excel-${uuidv4()}.xlsx`;
-  const outputPath = path.join(jobDir, outputFileName);
-  
   let settings = {};
   if (req.body.settings) {
-    try {
-      settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings;
-    } catch (e) {
-      console.error('Failed to parse settings:', e);
-    }
+    try { settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings; } catch (e) {}
   }
-  
-  try {
-    const resultPath = await executePython('doc_convert.py', {
-      action: 'pdf2excel',
-      file: inputPaths[0],
-      output: outputPath,
-      settings: settings
-    });
-    
-    await logAnalytics('pdf2excel', 1, fileSize, 'success', startTime);
-    const token = createDownloadToken(resultPath, outputFileName);
-    
-    res.json({
-      success: true,
-      downloadUrl: `/download/${token}`,
-      fileName: outputFileName,
-      size: fs.statSync(resultPath).size
-    });
-  } catch (err) {
-    await logAnalytics('pdf2excel', 1, fileSize, 'failed', startTime, err.message, err.stack);
-    cleanupJob(jobDir, inputPaths, false);
-    res.status(500).json({ success: false, error: err.message });
-  } finally {
-    cleanupJob(jobDir, inputPaths, true);
-  }
+  return executeBulkJob(req, res, {
+    toolName: 'pdf2excel',
+    scriptName: 'doc_convert.py',
+    pythonAction: 'pdf2excel',
+    outputExt: '.xlsx',
+    getExtraParams: (req) => ({ settings })
+  });
 };
 
 exports.pdfToPowerPoint = async (req, res) => {
-  const startTime = Date.now();
-  if (!req.file) {
-    return res.status(400).json({ success: false, error: 'Please upload a PDF file.' });
-  }
-  
-  const fileSize = req.file.size;
-  const { jobDir, inputPaths } = initJob(req);
-  const outputFileName = `presentation-${uuidv4()}.pptx`;
-  const outputPath = path.join(jobDir, outputFileName);
-  
   let settings = {};
   if (req.body.settings) {
-    try {
-      settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings;
-    } catch (e) {
-      console.error('Failed to parse settings:', e);
-    }
+    try { settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings; } catch (e) {}
   }
-  
-  try {
-    const resultPath = await executePython('doc_convert.py', {
-      action: 'pdf2ppt',
-      file: inputPaths[0],
-      output: outputPath,
-      settings: settings
-    });
-    
-    await logAnalytics('pdf2ppt', 1, fileSize, 'success', startTime);
-    const token = createDownloadToken(resultPath, outputFileName);
-    
-    res.json({
-      success: true,
-      downloadUrl: `/download/${token}`,
-      fileName: outputFileName,
-      size: fs.statSync(resultPath).size
-    });
-  } catch (err) {
-    await logAnalytics('pdf2ppt', 1, fileSize, 'failed', startTime, err.message, err.stack);
-    cleanupJob(jobDir, inputPaths, false);
-    res.status(500).json({ success: false, error: err.message });
-  } finally {
-    cleanupJob(jobDir, inputPaths, true);
-  }
+  return executeBulkJob(req, res, {
+    toolName: 'pdf2ppt',
+    scriptName: 'doc_convert.py',
+    pythonAction: 'pdf2ppt',
+    outputExt: '.pptx',
+    getExtraParams: (req) => ({ settings })
+  });
 };
 
 exports.powerpointToPdf = async (req, res) => {
-  const startTime = Date.now();
-  if (!req.file) {
-    return res.status(400).json({ success: false, error: 'Please upload a PowerPoint presentation (.pptx).' });
-  }
-  
-  const fileSize = req.file.size;
-  const { jobDir, inputPaths } = initJob(req);
-  const outputFileName = `presentation-${uuidv4()}.pdf`;
-  const outputPath = path.join(jobDir, outputFileName);
-  
   let settings = {};
   if (req.body.settings) {
-    try {
-      settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings;
-    } catch (e) {
-      console.error('Failed to parse settings:', e);
-    }
+    try { settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings; } catch (e) {}
   }
-  
-  try {
-    const resultPath = await executePython('doc_convert.py', {
-      action: 'ppt2pdf',
-      file: inputPaths[0],
-      output: outputPath,
-      settings: settings
-    });
-    
-    await logAnalytics('ppt2pdf', 1, fileSize, 'success', startTime);
-    const token = createDownloadToken(resultPath, outputFileName);
-    
-    res.json({
-      success: true,
-      downloadUrl: `/download/${token}`,
-      fileName: outputFileName,
-      size: fs.statSync(resultPath).size
-    });
-  } catch (err) {
-    await logAnalytics('ppt2pdf', 1, fileSize, 'failed', startTime, err.message, err.stack);
-    cleanupJob(jobDir, inputPaths, false);
-    res.status(500).json({ success: false, error: err.message });
-  } finally {
-    cleanupJob(jobDir, inputPaths, true);
-  }
+  return executeBulkJob(req, res, {
+    toolName: 'ppt2pdf',
+    scriptName: 'doc_convert.py',
+    pythonAction: 'ppt2pdf',
+    outputExt: '.pdf',
+    getExtraParams: (req) => ({ settings })
+  });
 };
 
 exports.htmlToPdf = async (req, res) => {
-  const startTime = Date.now();
-  if (!req.file) {
-    return res.status(400).json({ success: false, error: 'Please upload an HTML document.' });
-  }
-  
-  const fileSize = req.file.size;
-  const { jobDir, inputPaths } = initJob(req);
-  const outputFileName = `html-${uuidv4()}.pdf`;
-  const outputPath = path.join(jobDir, outputFileName);
-  
   let settings = {};
   if (req.body.settings) {
-    try {
-      settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings;
-    } catch (e) {
-      console.error('Failed to parse settings:', e);
-    }
+    try { settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings; } catch (e) {}
   }
-  
-  try {
-    const resultPath = await executePython('doc_convert.py', {
-      action: 'html2pdf',
-      file: inputPaths[0],
-      output: outputPath,
-      settings: settings
-    });
-    
-    await logAnalytics('html2pdf', 1, fileSize, 'success', startTime);
-    const token = createDownloadToken(resultPath, outputFileName);
-    
-    res.json({
-      success: true,
-      downloadUrl: `/download/${token}`,
-      fileName: outputFileName,
-      size: fs.statSync(resultPath).size
-    });
-  } catch (err) {
-    await logAnalytics('html2pdf', 1, fileSize, 'failed', startTime, err.message, err.stack);
-    cleanupJob(jobDir, inputPaths, false);
-    res.status(500).json({ success: false, error: err.message });
-  } finally {
-    cleanupJob(jobDir, inputPaths, true);
-  }
+  return executeBulkJob(req, res, {
+    toolName: 'html2pdf',
+    scriptName: 'doc_convert.py',
+    pythonAction: 'html2pdf',
+    outputExt: '.pdf',
+    getExtraParams: (req) => ({ settings })
+  });
 };
 
 exports.removePages = async (req, res) => {

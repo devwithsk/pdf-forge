@@ -19,13 +19,13 @@ const FileRow = ({ file, idx, totalFiles, multiple, onRemove, onMoveUp, onMoveDo
 
     let active = true;
     const reader = new FileReader();
-    
+
     reader.onloadend = () => {
       if (active) {
         setPreviewUrl(reader.result);
       }
     };
-    
+
     reader.onerror = () => {
       if (active) {
         setImgError(true);
@@ -109,7 +109,7 @@ const FileRow = ({ file, idx, totalFiles, multiple, onRemove, onMoveUp, onMoveDo
   );
 };
 
-const DragDropZone = ({ accept, multiple, files, setFiles }) => {
+const DragDropZone = ({ accept, multiple, files, setFiles, maxFiles }) => {
   const [isDragActive, setIsDragActive] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -125,7 +125,7 @@ const DragDropZone = ({ accept, multiple, files, setFiles }) => {
 
   const processFiles = (newFilesList) => {
     const list = Array.from(newFilesList);
-    
+
     // Extensions verification
     const allowedExts = accept.split(',').map(ext => ext.trim().toLowerCase());
     const filtered = list.filter(file => {
@@ -136,7 +136,15 @@ const DragDropZone = ({ accept, multiple, files, setFiles }) => {
     if (filtered.length === 0) return;
 
     if (multiple) {
-      setFiles((prev) => [...prev, ...filtered]);
+      const maxLimit = maxFiles || 20;
+      setFiles((prev) => {
+        const combined = [...prev, ...filtered];
+        if (combined.length > maxLimit) {
+          alert(`Maximum ${maxLimit} files allowed for this tool.`);
+          return combined.slice(0, maxLimit);
+        }
+        return combined;
+      });
     } else {
       setFiles([filtered[0]]);
     }
@@ -166,7 +174,7 @@ const DragDropZone = ({ accept, multiple, files, setFiles }) => {
     const newFiles = [...files];
     const targetIndex = index + direction;
     if (targetIndex < 0 || targetIndex >= files.length) return;
-    
+
     // Swap
     const temp = newFiles[index];
     newFiles[index] = newFiles[targetIndex];
@@ -175,6 +183,11 @@ const DragDropZone = ({ accept, multiple, files, setFiles }) => {
   };
 
   const openFileDialog = () => {
+    const maxLimit = maxFiles || 20;
+    if (files.length >= maxLimit) {
+      alert(`Maximum ${maxLimit} files allowed for this tool.`);
+      return;
+    }
     fileInputRef.current.click();
   };
 
@@ -194,11 +207,10 @@ const DragDropZone = ({ accept, multiple, files, setFiles }) => {
         onDragLeave={handleDrag}
         onDrop={handleDrop}
         onClick={files.length === 0 ? openFileDialog : undefined}
-        className={`w-full border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer flex flex-col items-center justify-center min-h-[280px] ${
-          isDragActive 
-            ? 'border-primary bg-primary/5 scale-[1.01]' 
+        className={`w-full border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer flex flex-col items-center justify-center min-h-[280px] ${isDragActive
+            ? 'border-primary bg-primary/5 scale-[1.01]'
             : 'border-slate-300 bg-white hover:border-primary/50'
-        } ${files.length > 0 ? 'cursor-default' : ''}`}
+          } ${files.length > 0 ? 'cursor-default' : ''}`}
       >
         <input
           ref={fileInputRef}
