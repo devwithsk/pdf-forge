@@ -133,8 +133,11 @@ def compress_pdf(input_path, output_path, compression_level='recommended'):
     reader = assert_pdf_limits(input_path)
     writer = PdfWriter()
     for page in reader.pages:
-        page.compress_content_streams()
-        writer.add_page(page)
+        new_page = writer.add_page(page)
+        try:
+            new_page.compress_content_streams()
+        except Exception:
+            pass
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, "wb") as f:
         writer.write(f)

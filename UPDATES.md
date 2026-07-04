@@ -131,3 +131,17 @@ This document details all the new features, capabilities, and optimization updat
   - Replaced unstable `URL.createObjectURL` references with asynchronous `FileReader.readAsDataURL` base64 strings to prevent aggressive garbage collection on strict WebKit/mobile browsers.
   - Wrapped FileReader in an active-mount checking lifecycle, and added a safe `onError` fallback replacing broken thumbnails with generic document icons without freezing the UI thread.
   - Added direct `onClick` event listeners and `z-index` layering on mobile submission buttons to guarantee tap propagation.
+
+### Python FastAPI Backend Migration (Phase 1 & Phase 2)
+* **High-Performance FastAPI Server:**
+  - Setup python package specifications (`fastapi`, `uvicorn`, `python-multipart`) and initialized app in `backend-api/main.py` listening on port `8000`.
+  - Configured CORS rules to permit request sharing from cloud hosting domains and localhost.
+  - Implemented secure token-based download storage (`secrets.token_hex`) in memory.
+  - Wrote `/download/{token}` endpoint utilizing FastAPI `BackgroundTasks` to dynamically wipe temporary workspaces after download completion.
+* **In-Process Core Route Wiring:**
+  - Configured `/api/pdf2jpg` and `/api/word2pdf` endpoints importing core engine modules (`pdf_to_jpg`, `word_to_pdf`) directly.
+  - Eliminates Node-to-Python subprocess execution penalties entirely by executing Python functions directly within the FastAPI process.
+  - Dynamically packages multiple processed outputs into a single downloadable ZIP archive.
+* **Frontend Alignment:**
+  - Updated React api base URL default fallback endpoint port to `8000` inside `utils/api.js`.
+

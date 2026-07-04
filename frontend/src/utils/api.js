@@ -3,9 +3,9 @@ import axios from 'axios';
 const getApiBaseUrl = () => {
   let envUrl = import.meta.env.VITE_API_URL;
   
-  // Default fallback to backend on port 7860
+  // Default fallback to backend on port 8000
   if (!envUrl) {
-    return 'http://localhost:7860/api';
+    return 'http://localhost:8000/api';
   }
   
   // If it is already an absolute URL, return it cleaned up
