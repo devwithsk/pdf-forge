@@ -34,4 +34,5 @@ EXPOSE 7860
 ENV PORT=7860
 
 # Start Express Server
-CMD ["node", "server.js"]
+# Start FastAPI Server
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7860"]

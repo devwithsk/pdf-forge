@@ -19,8 +19,8 @@ PDFForge is a lightning-fast, secure, and 100% free online PDF utility platform.
 The project uses a decoupled, three-tier microservice style:
 
 1. **Frontend (UI/UX):** Built with **React (Vite)** and **Tailwind CSS v4**. Implements responsive web layouts, custom typography (Inter font), high-attention AdSense placements, and intuitive drag-and-drop workspace triggers.
-2. **Backend API (Controller):** Powered by **Node.js** and **Express.js**. Manages file streams using `multer`, rate-limits requests, handles database analytics, and spawns Python processes to execute document modifications.
-3. **Processing Engine (The Brain):** Pure **Python** modules wrapped in a virtual environment (`venv`). It runs robust scripts using `pypdf`, `pikepdf`, `pdf2image`, `pdf2docx`, `openpyxl`, and `reportlab`.
+2. **Backend API (Controller):** Powered by **Python FastAPI** and **Uvicorn**. Handles file uploads, manages secure short-lived file download tokens in memory, and triggers direct in-process core PDF/document conversions to eliminate subprocess booting overhead entirely.
+3. **Processing Engine (The Brain):** Pure **Python** modules. It runs robust scripts using `pypdf`, `pikepdf`, `pdf2image`, `pdf2docx`, `openpyxl`, and `reportlab`.
 
 ---
 
@@ -42,14 +42,9 @@ pdf-utility-platform/
 │   │   └── utils/                # Axios API configurations
 │   └── package.json
 │
-├── backend-api/                  # Node.js + Express API
-│   ├── config/                   # MongoDB connection config
-│   ├── controllers/              # Request parsing & python runners
-│   ├── middlewares/              # File uploads (Multer) & Rate limiting
-│   ├── routes/                   # Routing endpoints
-│   ├── models/                   # Analytics and Error Schemas
-│   ├── uploads/                  # Temporary cache folder for input files
-│   └── processed/                # Temporary cache folder for output files
+├── backend-api/                  # Python FastAPI API
+│   ├── main.py                   # FastAPI application routes & logic
+│   └── jobs/                     # Temporary cache folder for job processing
 │
 └── python-engine/                # Python Core Logic
     ├── modules/                  # Conversion and manipulation scripts
@@ -72,9 +67,9 @@ To run the entire platform at once, simply double-click the **`run.bat`** file i
 ### 🐳 Docker Deployment (Decoupled Spaces)
 This project is configured to run inside a single container (such as Hugging Face Spaces or custom Docker hosts) using the root `Dockerfile`:
 - Uses `python:3.10-slim` as the base image.
-- Installs Node.js 18.x, system tools, and `poppler-utils` dependencies.
+- Installs system tools and `poppler-utils` dependencies.
 - Sets up python core libraries (`reportlab`, `pikepdf`, `pdf2image`, `openpyxl`, etc.).
-- Exposes port `7860` and starts the Node.js API server which acts as the application entry point.
+- Exposes port `7860` and starts the Python FastAPI API server which acts as the application entry point.
 
 ---
 
@@ -106,19 +101,17 @@ pip install -r requirements.txt
 > [!NOTE]
 > For **PDF to Image** conversion, the engine uses `pdf2image` which requires **Poppler**. Install poppler on your system and add the `bin/` folder to your environment system PATH.
 
-### 2. Backend API Setup (NodeJS)
+### 2. Backend API Setup (Python FastAPI)
 
-MongoDB is recommended for conversion stats and error logging. The backend falls back to standard execution if MongoDB is not running locally.
+The backend now runs as a high-performance Python FastAPI server. It processes files in-memory/in-process via direct imports to eliminate subprocess spawning penalties.
 
 ```bash
 # Navigate to backend API folder
 cd ../backend-api
 
-# Install npm packages
-npm install
-
-# Start Express server (runs on http://localhost:7860)
-npm run dev
+# Start FastAPI server (runs on http://localhost:8000)
+# Make sure your python virtual environment is activated, then run:
+python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 ### 3. Frontend Client Setup (React)

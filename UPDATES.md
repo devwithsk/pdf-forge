@@ -132,16 +132,19 @@ This document details all the new features, capabilities, and optimization updat
   - Wrapped FileReader in an active-mount checking lifecycle, and added a safe `onError` fallback replacing broken thumbnails with generic document icons without freezing the UI thread.
   - Added direct `onClick` event listeners and `z-index` layering on mobile submission buttons to guarantee tap propagation.
 
-### Python FastAPI Backend Migration (Phase 1 & Phase 2)
+### Python FastAPI Backend Migration (End-to-End Complete)
 * **High-Performance FastAPI Server:**
-  - Setup python package specifications (`fastapi`, `uvicorn`, `python-multipart`) and initialized app in `backend-api/main.py` listening on port `8000`.
+  - Setup python package specifications (`fastapi`, `uvicorn`, `python-multipart`) and initialized app in `backend-api/main.py` listening on port `8000` locally (and `7860` inside Docker).
   - Configured CORS rules to permit request sharing from cloud hosting domains and localhost.
   - Implemented secure token-based download storage (`secrets.token_hex`) in memory.
   - Wrote `/download/{token}` endpoint utilizing FastAPI `BackgroundTasks` to dynamically wipe temporary workspaces after download completion.
-* **In-Process Core Route Wiring:**
-  - Configured `/api/pdf2jpg` and `/api/word2pdf` endpoints importing core engine modules (`pdf_to_jpg`, `word_to_pdf`) directly.
+* **In-Process Core Route Wiring for all 20 PDF & Document Tools:**
+  - Configured endpoints (`/api/pdf2jpg`, `/api/word2pdf`, `/api/excel2pdf`, `/api/ppt2pdf`, `/api/html2pdf`, `/api/pdf2word`, `/api/pdf2excel`, `/api/pdf2ppt`, `/api/merge`, `/api/split`, `/api/rotate`, `/api/remove-pages`, `/api/organize-pdf`, `/api/compress`, `/api/repair`, `/api/protect`, `/api/unlock`, `/api/watermark`, `/api/add-page-numbers`, and `/api/analytics`) importing core engine modules directly.
   - Eliminates Node-to-Python subprocess execution penalties entirely by executing Python functions directly within the FastAPI process.
   - Dynamically packages multiple processed outputs into a single downloadable ZIP archive.
 * **Frontend Alignment:**
   - Updated React api base URL default fallback endpoint port to `8000` inside `utils/api.js`.
+* **Docker & Bat Integration:**
+  - Updated root `Dockerfile` to expose port `7860` and start the backend using `uvicorn main:app --host 0.0.0.0 --port 7860`.
+  - Updated root `run.bat` to automatically spin up uvicorn server on port `8000` alongside Vite client dev server.
 
