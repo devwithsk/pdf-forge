@@ -227,6 +227,10 @@ const ToolPage = () => {
   // Array of 0-based page indices in the desired output order
   const [pageOrder, setPageOrder] = useState([]);
 
+  // Page Numbers settings states
+  const [numPosition, setNumPosition] = useState('bottom_center');
+  const [numStartingNumber, setNumStartingNumber] = useState('1');
+
   useEffect(() => {
     const currentTool = tools.find(t => t.id === toolId);
     if (!currentTool) {
@@ -264,6 +268,8 @@ const ToolPage = () => {
       setPdfToPptSize('16:9');
       setPdfToPptVectorMode(false);
       setPageOrder([]); // Reset page order on tool switch
+      setNumPosition('bottom_center');
+      setNumStartingNumber('1');
     }
   }, [toolId, tools, navigate]);
 
@@ -371,6 +377,17 @@ const ToolPage = () => {
     } else if (tool.id === 'organize-pdf') {
       formData.append('settings', JSON.stringify({ pageOrder }));
       setStatusText('Reordering PDF pages...');
+    } else if (tool.id === 'numbers') {
+      const settingsPayload = {
+        position: numPosition,
+        startingNumber: parseInt(numStartingNumber) || 1
+      };
+      formData.append('settings', JSON.stringify(settingsPayload));
+      setStatusText('Adding page numbers to PDF...');
+    } else if (tool.id === 'compress') {
+      setStatusText('Compressing PDF...');
+    } else if (tool.id === 'repair') {
+      setStatusText('Repairing and rebuilding PDF...');
     }
 
     // Append files after fields
@@ -842,12 +859,42 @@ const ToolPage = () => {
             </div>
           </div>
         );
-      // For Remove Pages and Organize PDF: the interactive UI is rendered in the
-      // main left panel (PDFPageGrid), not in the settings sidebar.
-      // These cases return null so the sidebar stays clean.
       case 'remove-pages':
       case 'organize-pdf':
+      case 'compress':
+      case 'repair':
         return null;
+      case 'numbers':
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Page Numbers Position</label>
+              <select
+                value={numPosition}
+                onChange={(e) => setNumPosition(e.target.value)}
+                className="block w-full p-3 border border-slate-200 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm cursor-pointer"
+              >
+                <option value="bottom_center">Bottom Center</option>
+                <option value="bottom_left">Bottom Left</option>
+                <option value="bottom_right">Bottom Right</option>
+                <option value="top_center">Top Center</option>
+                <option value="top_left">Top Left</option>
+                <option value="top_right">Top Right</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Starting Page Number</label>
+              <input
+                type="number"
+                min="1"
+                value={numStartingNumber}
+                onChange={(e) => setNumStartingNumber(e.target.value)}
+                required
+                className="block w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
+              />
+            </div>
+          </div>
+        );
       default:
         return null;
     }
@@ -932,6 +979,8 @@ const ToolPage = () => {
                     setOrientation('Portrait');
                     setMergeMode('merge');
                     setPageOrder([]);
+                    setNumPosition('bottom_center');
+                    setNumStartingNumber('1');
                   }}
                   className="flex-grow py-3 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl font-bold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >

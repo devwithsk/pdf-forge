@@ -86,3 +86,35 @@ This document details all the new features, capabilities, and optimization updat
   * Installs Node.js 18.x and native compiler commands (`curl`, `poppler-utils`).
   * Resolves python dependencies in virtual environments and manages node packages.
   * Runs both servers simultaneously from a single container entry point.
+
+---
+
+## 🛠️ 5. Interactive PDF Tools, Optimizations & Mobile Fixes
+
+### Interactive PDF Organization & Page Tools
+* **Remove Pages:**
+  - Implemented interactive frontend PDF rendering using `pdfjs-dist` to display page thumbnails.
+  - Hover trash overlay allows users to select/deselect pages to delete, providing clear visual states (reduced opacity and line-through labels).
+* **Organize PDF:**
+  - Implemented full drag-and-drop page reordering utilizing native HTML5 Drag and Drop events.
+  - Interactive grid elements scale, highlight border margins, and show grip handle indicators on hover.
+  - Extracted 0-based page indices array dynamically forwarded as request settings body payload.
+
+### PDF Optimization, Recovery & Formatting
+* **Compress PDF:**
+  - Configured `ghostscript` installation inside `Dockerfile` to handle high-fidelity compression.
+  - Spawns subprocess command `gs` with screen quality optimization configs, falling back to basic pypdf stream compression if needed.
+* **Repair PDF:**
+  - Implemented recovery wrapper calling `pikepdf.Pdf.open(..., recover=True)` to rebuild broken headers, trailers, or indexes.
+* **Page Numbers:**
+  - Added canvas generation using `reportlab.pdfgen.canvas` to write numbers onto an overlay template PDF matching original margins, then merging them together page-by-page.
+  - Added sidebar controls in React allowing position alignment (bottom-center, top-right, etc.) and starting page offset.
+
+### High-Fidelity Conversion & Mobile UX Tweaks
+* **PDF-to-Image 1-Page UX Tweak:**
+  - Programmed Python image converter to skip ZIP bundling for exactly 1-page PDFs. Returns direct image file path instead.
+  - Configured Express downloader route to set correct MIME type headers (`image/jpeg` vs `application/zip`) dynamically.
+* **FileReader Mobile Fallbacks:**
+  - Replaced unstable `URL.createObjectURL` references with asynchronous `FileReader.readAsDataURL` base64 strings to prevent aggressive garbage collection on strict WebKit/mobile browsers.
+  - Wrapped FileReader in an active-mount checking lifecycle, and added a safe `onError` fallback replacing broken thumbnails with generic document icons without freezing the UI thread.
+  - Added direct `onClick` event listeners and `z-index` layering on mobile submission buttons to guarantee tap propagation.

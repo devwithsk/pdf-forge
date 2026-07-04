@@ -46,6 +46,14 @@ app.get('/download/:token', (req, res) => {
   if (!fs.existsSync(filePath)) {
     return res.status(404).json({ success: false, error: 'The requested file no longer exists.' });
   }
+
+  const ext = path.extname(fileName).toLowerCase();
+  let contentType = 'application/octet-stream';
+  if (ext === '.zip') contentType = 'application/zip';
+  else if (ext === '.jpg' || ext === '.jpeg') contentType = 'image/jpeg';
+  else if (ext === '.png') contentType = 'image/png';
+  else if (ext === '.pdf') contentType = 'application/pdf';
+  res.setHeader('Content-Type', contentType);
   
   res.download(filePath, fileName, (err) => {
     if (err) {

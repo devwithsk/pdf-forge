@@ -411,6 +411,78 @@ exports.rotatePDF = async (req, res) => {
   }
 };
 
+exports.compressPDF = async (req, res) => {
+  const startTime = Date.now();
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: 'Please upload a PDF file to compress.' });
+  }
+  
+  const fileSize = req.file.size;
+  const { jobDir, inputPaths } = initJob(req);
+  const outputFileName = `compressed-${uuidv4()}.pdf`;
+  const outputPath = path.join(jobDir, outputFileName);
+  
+  try {
+    const resultPath = await executePython('basic_manipulation.py', {
+      action: 'compress',
+      file: inputPaths[0],
+      output: outputPath
+    });
+    
+    await logAnalytics('compress', 1, fileSize, 'success', startTime);
+    const token = createDownloadToken(resultPath, outputFileName);
+    
+    res.json({
+      success: true,
+      downloadUrl: `/download/${token}`,
+      fileName: outputFileName,
+      size: fs.statSync(resultPath).size
+    });
+  } catch (err) {
+    await logAnalytics('compress', 1, fileSize, 'failed', startTime, err.message, err.stack);
+    cleanupJob(jobDir, inputPaths, false);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    cleanupJob(jobDir, inputPaths, true);
+  }
+};
+
+exports.repairPDF = async (req, res) => {
+  const startTime = Date.now();
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: 'Please upload a PDF file to repair.' });
+  }
+  
+  const fileSize = req.file.size;
+  const { jobDir, inputPaths } = initJob(req);
+  const outputFileName = `repaired-${uuidv4()}.pdf`;
+  const outputPath = path.join(jobDir, outputFileName);
+  
+  try {
+    const resultPath = await executePython('basic_manipulation.py', {
+      action: 'repair',
+      file: inputPaths[0],
+      output: outputPath
+    });
+    
+    await logAnalytics('repair', 1, fileSize, 'success', startTime);
+    const token = createDownloadToken(resultPath, outputFileName);
+    
+    res.json({
+      success: true,
+      downloadUrl: `/download/${token}`,
+      fileName: outputFileName,
+      size: fs.statSync(resultPath).size
+    });
+  } catch (err) {
+    await logAnalytics('repair', 1, fileSize, 'failed', startTime, err.message, err.stack);
+    cleanupJob(jobDir, inputPaths, false);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    cleanupJob(jobDir, inputPaths, true);
+  }
+};
+
 exports.protectPDF = async (req, res) => {
   const startTime = Date.now();
   if (!req.file) {
@@ -529,6 +601,56 @@ exports.watermarkPDF = async (req, res) => {
     });
   } catch (err) {
     await logAnalytics('watermark', 1, fileSize, 'failed', startTime, err.message, err.stack);
+    cleanupJob(jobDir, inputPaths, false);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    cleanupJob(jobDir, inputPaths, true);
+  }
+};
+
+exports.addPageNumbers = async (req, res) => {
+  const startTime = Date.now();
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: 'Please upload a PDF file.' });
+  }
+  
+  const fileSize = req.file.size;
+  const { jobDir, inputPaths } = initJob(req);
+  const outputFileName = `numbered-${uuidv4()}.pdf`;
+  const outputPath = path.join(jobDir, outputFileName);
+  
+  let settings = {};
+  if (req.body.settings) {
+    try {
+      settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings;
+    } catch (e) {
+      console.error('Failed to parse settings:', e);
+    }
+  }
+  
+  const position = settings.position || 'bottom_center';
+  const startingNumber = parseInt(settings.startingNumber) || 1;
+  
+  try {
+    const resultPath = await executePython('basic_manipulation.py', {
+      action: 'numbers',
+      file: inputPaths[0],
+      output: outputPath,
+      position: position,
+      starting_number: startingNumber
+    });
+    
+    await logAnalytics('numbers', 1, fileSize, 'success', startTime);
+    const token = createDownloadToken(resultPath, outputFileName);
+    
+    res.json({
+      success: true,
+      downloadUrl: `/download/${token}`,
+      fileName: outputFileName,
+      size: fs.statSync(resultPath).size
+    });
+  } catch (err) {
+    await logAnalytics('numbers', 1, fileSize, 'failed', startTime, err.message, err.stack);
     cleanupJob(jobDir, inputPaths, false);
     res.status(500).json({ success: false, error: err.message });
   } finally {

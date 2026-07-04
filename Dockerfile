@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     poppler-utils \
     libreoffice \
     fonts-dejavu-core \
+    ghostscript \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js 18.x via NodeSource

@@ -2,8 +2,154 @@ import os
 import sys
 import json
 import zipfile
+import subprocess
+import shutil
+import pikepdf
 from pypdf import PdfReader, PdfWriter
 from limits import assert_pdf_limits
+from reportlab.pdfgen import canvas
+from reportlab.lib.colors import HexColor
+
+def add_page_numbers(input_path, output_path, position='bottom_center', starting_number=1):
+    reader = assert_pdf_limits(input_path)
+    total_pages = len(reader.pages)
+    
+    # We will generate a temp PDF containing just the page numbers overlay,
+    # then merge page by page.
+    temp_num_path = input_path + ".temp_nums.pdf"
+    
+    try:
+        c = canvas.Canvas(temp_num_path)
+        
+        for idx in range(total_pages):
+            page = reader.pages[idx]
+            # Get width and height of the page to position dynamically
+            width = float(page.mediabox.width)
+            height = float(page.mediabox.height)
+            
+            c.setPageSize((width, height))
+            c.setFont("Helvetica", 10)
+            c.setFillColor(HexColor("#333333"))
+            
+            page_num_str = str(starting_number + idx)
+            
+            # Position coordinates
+            margin = 36 # 0.5 inch margins
+            
+            if position == 'bottom_center':
+                x = width / 2.0
+                y = margin
+                c.drawCentredString(x, y, page_num_str)
+            elif position == 'bottom_right':
+                x = width - margin
+                y = margin
+                c.drawRightString(x, y, page_num_str)
+            elif position == 'bottom_left':
+                x = margin
+                y = margin
+                c.drawString(x, y, page_num_str)
+            elif position == 'top_center':
+                x = width / 2.0
+                y = height - margin
+                c.drawCentredString(x, y, page_num_str)
+            elif position == 'top_right':
+                x = width - margin
+                y = height - margin
+                c.drawRightString(x, y, page_num_str)
+            elif position == 'top_left':
+                x = margin
+                y = height - margin
+                c.drawString(x, y, page_num_str)
+            else: # default bottom_center
+                x = width / 2.0
+                y = margin
+                c.drawCentredString(x, y, page_num_str)
+                
+            c.showPage()
+            
+        c.save()
+        
+        # Merge the numbers PDF onto the original
+        num_reader = PdfReader(temp_num_path)
+        writer = PdfWriter()
+        
+        for idx in range(total_pages):
+            orig_page = reader.pages[idx]
+            num_page = num_reader.pages[idx]
+            orig_page.merge_page(num_page)
+            writer.add_page(orig_page)
+            
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        with open(output_path, "wb") as f:
+            writer.write(f)
+            
+    finally:
+        if os.path.exists(temp_num_path):
+            try:
+                os.remove(temp_num_path)
+            except OSError:
+                pass
+                
+    return output_path
+
+def compress_pdf(input_path, output_path):
+    # Check if input path exists and limits
+    assert_pdf_limits(input_path)
+    
+    # Try different executable names for Ghostscript depending on platform
+    gs_executable = None
+    for exe in ["gs", "gswin64c", "gswin32c"]:
+        if shutil.which(exe):
+            gs_executable = exe
+            break
+            
+    if gs_executable:
+        try:
+            subprocess.run([
+                gs_executable, 
+                '-sDEVICE=pdfwrite', 
+                '-dCompatibilityLevel=1.4', 
+                '-dPDFSETTINGS=/screen', 
+                '-dNOPAUSE', 
+                '-dQUIET', 
+                '-dBATCH', 
+                f'-sOutputFile={output_path}', 
+                input_path
+            ], check=True)
+            return output_path
+        except subprocess.CalledProcessError as e:
+            # If gs fails, let's fall back to basic pypdf content stream compression
+            pass
+
+    # Fallback to pypdf content stream compression
+    reader = assert_pdf_limits(input_path)
+    writer = PdfWriter()
+    for page in reader.pages:
+        page.compress_content_streams()
+        writer.add_page(page)
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "wb") as f:
+        writer.write(f)
+    return output_path
+
+def repair_pdf(input_path, output_path):
+    assert_pdf_limits(input_path)
+    try:
+        with pikepdf.Pdf.open(input_path, recover=True) as pdf:
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            pdf.save(output_path)
+        return output_path
+    except Exception as e:
+        # Fallback to simple copy or pypdf re-writing if pikepdf fails
+        reader = assert_pdf_limits(input_path)
+        writer = PdfWriter()
+        for page in reader.pages:
+            writer.add_page(page)
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        with open(output_path, "wb") as f:
+            writer.write(f)
+        return output_path
+
 
 def parse_range(range_str, max_pages):
     """
@@ -184,6 +330,26 @@ def main():
                 result = reorder_pdf_pages(file_path, output, page_order)
                 print(json.dumps({"success": True, "output": result}))
                 return
+            elif action == "compress":
+                file_path = sys.argv[2]
+                output = sys.argv[3]
+                result = compress_pdf(file_path, output)
+                print(json.dumps({"success": True, "output": result}))
+                return
+            elif action == "repair":
+                file_path = sys.argv[2]
+                output = sys.argv[3]
+                result = repair_pdf(file_path, output)
+                print(json.dumps({"success": True, "output": result}))
+                return
+            elif action == "numbers":
+                file_path = sys.argv[2]
+                output = sys.argv[3]
+                position = sys.argv[4] if len(sys.argv) > 4 else "bottom_center"
+                starting_number = int(sys.argv[5]) if len(sys.argv) > 5 else 1
+                result = add_page_numbers(file_path, output, position, starting_number)
+                print(json.dumps({"success": True, "output": result}))
+                return
 
         # Read parameters from stdin
         input_data = sys.stdin.read()
@@ -222,6 +388,26 @@ def main():
             output = params.get("output")
             page_order = [int(i) for i in params.get("page_order", [])]
             result = reorder_pdf_pages(file_path, output, page_order)
+            print(json.dumps({"success": True, "output": result}))
+            
+        elif action == "compress":
+            file_path = params.get("file")
+            output = params.get("output")
+            result = compress_pdf(file_path, output)
+            print(json.dumps({"success": True, "output": result}))
+            
+        elif action == "repair":
+            file_path = params.get("file")
+            output = params.get("output")
+            result = repair_pdf(file_path, output)
+            print(json.dumps({"success": True, "output": result}))
+            
+        elif action == "numbers":
+            file_path = params.get("file")
+            output = params.get("output")
+            position = params.get("position", "bottom_center")
+            starting_number = int(params.get("starting_number", 1))
+            result = add_page_numbers(file_path, output, position, starting_number)
             print(json.dumps({"success": True, "output": result}))
             
         else:

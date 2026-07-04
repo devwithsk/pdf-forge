@@ -138,18 +138,21 @@ npm run dev
 
 ## ⚙️ Core Modules & Capabilities
 
-### Module 1: Basic File Manipulation
+### Module 1: Basic File Manipulation & Organization
 * **Merge PDF:** Combine multiple PDF documents in a sorted sequence.
 * **Split PDF:** Extract a custom page range or split all pages into individual files bundled in a ZIP.
 * **Rotate PDF:** Rotate pages clockwise by 90, 180, or 270 degrees.
+* **Remove Pages:** Interactively preview and permanently delete unwanted pages from your PDF document.
+* **Organize PDF:** Drag and drop page thumbnails to freely reorder pages in a PDF document.
 
 ### Module 2: Security & Formatting
 * **Protect PDF:** Encrypt a PDF with password security.
 * **Unlock PDF:** Decrypt an owner-secured PDF using its password. Sanitizes paths and presents friendly errors to the user.
 * **Watermark PDF:** Stamp rotated custom text watermarks onto all pages matching target dimensions.
+* **Page Numbers:** Overlay custom page numbers at target positions (e.g., bottom center, top right) with configurable starting number.
 
 ### Module 3: Image Conversion
-* **PDF to Image (JPG/PNG):** Convert each page of a PDF file to images bundled in a ZIP archive.
+* **PDF to Image (JPG/PNG):** Convert each page of a PDF file to images. Automatically bypasses ZIP bundling for single-page PDFs, serving the raw image directly for an improved UX.
 * **Image to PDF (JPG/JPEG/PNG):** Build a unified PDF from multiple image uploads with A4, US Letter, or Auto page sizes, Portrait/Landscape orientations, and a layout alignment engine. Supports individual ZIP archive packaging.
 
 ### Module 4: Document Conversion
@@ -160,6 +163,10 @@ npm run dev
 * **PDF to Word:** Convert PDF documents back to editable Microsoft Word documents (`.docx`).
 * **PDF to Excel:** Extract PDF tables into editable Excel spreadsheets (`.xlsx`).
 * **PDF to PowerPoint:** Convert PDF pages into editable PowerPoint presentation slides (`.pptx`).
+
+### Module 5: PDF Optimization & Repair
+* **Compress PDF:** Reduce PDF size using Ghostscript integration (with lossless fallback).
+* **Repair PDF:** Automatically recover, fix, and rebuild corrupted or damaged PDF structures using `pikepdf`.
 
 ---
 

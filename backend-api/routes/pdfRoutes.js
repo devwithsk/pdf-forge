@@ -10,11 +10,14 @@ router.post('/split', limiter, upload.single('file'), pdfController.splitPDF);
 router.post('/rotate', limiter, upload.single('file'), pdfController.rotatePDF);
 router.post('/remove-pages', limiter, upload.single('file'), pdfController.removePages);
 router.post('/organize-pdf', limiter, upload.single('file'), pdfController.organizePdf);
+router.post('/compress', limiter, upload.single('file'), pdfController.compressPDF);
+router.post('/repair', limiter, upload.single('file'), pdfController.repairPDF);
 
 // Module 2: Security & Formatting
 router.post('/protect', limiter, upload.single('file'), pdfController.protectPDF);
 router.post('/unlock', limiter, upload.single('file'), pdfController.unlockPDF);
 router.post('/watermark', limiter, upload.single('file'), pdfController.watermarkPDF);
+router.post('/add-page-numbers', limiter, upload.single('file'), pdfController.addPageNumbers);
 
 // Module 3: Image Conversion
 router.post('/pdf2jpg', heavyLimiter, upload.single('file'), pdfController.pdfToJpg);

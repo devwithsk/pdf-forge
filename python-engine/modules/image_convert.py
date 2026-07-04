@@ -25,6 +25,27 @@ def pdf_to_jpg(file_path, output_dir, img_format='jpg', dpi=120, quality=82, pop
     total_pages = len(reader.pages)
     
     try:
+        if total_pages == 1:
+            pages = convert_from_path(
+                file_path, 
+                dpi=dpi, 
+                first_page=1, 
+                last_page=1, 
+                thread_count=1, 
+                **kwargs
+            )
+            if pages:
+                img_name = f"{base_name}.{img_format}"
+                img_path = os.path.join(output_dir, img_name)
+                save_format = 'PNG' if img_format.lower() == 'png' else 'JPEG'
+                if save_format == 'PNG':
+                    pages[0].save(img_path, save_format)
+                else:
+                    pages[0].save(img_path, save_format, quality=quality, optimize=True)
+                return img_path
+            else:
+                raise RuntimeError("Failed to convert the single page PDF.")
+
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
             for page_no in range(1, total_pages + 1):
                 # Convert pages one by one to prevent loading everything into RAM

@@ -189,6 +189,39 @@ export const TOOLS = [
     endpoint: '/html2pdf',
     accept: '.html',
     multiple: false
+  },
+  {
+    id: 'compress',
+    name: 'Compress PDF',
+    desc: 'Reduce the file size of your PDF while maintaining optimal quality.',
+    icon: 'FileDown',
+    module: 'Basic File Manipulation',
+    category: 'optimize',
+    endpoint: '/compress',
+    accept: '.pdf',
+    multiple: false
+  },
+  {
+    id: 'repair',
+    name: 'Repair PDF',
+    desc: 'Fix corrupted, broken, or damaged PDF documents automatically.',
+    icon: 'Wrench',
+    module: 'Basic File Manipulation',
+    category: 'optimize',
+    endpoint: '/repair',
+    accept: '.pdf',
+    multiple: false
+  },
+  {
+    id: 'numbers',
+    name: 'Page Numbers',
+    desc: 'Add custom page numbers to your PDF document at your desired position.',
+    icon: 'Binary',
+    module: 'Security & Formatting',
+    category: 'edit',
+    endpoint: '/add-page-numbers',
+    accept: '.pdf',
+    multiple: false
   }
 ];
 
@@ -207,8 +240,8 @@ export const CATEGORIES = [
     id: 'optimize',
     name: 'Optimize PDF',
     tools: [
-      { id: 'compress', name: 'Compress PDF', icon: 'FileDown', desc: 'Reduce PDF file size.', isPlaceholder: true },
-      { id: 'repair', name: 'Repair PDF', icon: 'Wrench', desc: 'Fix damaged PDF documents.', isPlaceholder: true }
+      { id: 'compress', name: 'Compress PDF', icon: 'FileDown', desc: 'Reduce PDF file size.', isPlaceholder: false },
+      { id: 'repair', name: 'Repair PDF', icon: 'Wrench', desc: 'Fix damaged PDF documents.', isPlaceholder: false }
     ]
   },
   {
@@ -238,7 +271,7 @@ export const CATEGORIES = [
     tools: [
       { id: 'rotate', name: 'Rotate PDF', icon: 'RotateCw', desc: 'Rotate PDF pages easily.', isPlaceholder: false },
       { id: 'watermark', name: 'Watermark PDF', icon: 'Type', desc: 'Add image or text watermark.', isPlaceholder: false },
-      { id: 'numbers', name: 'Page Numbers', icon: 'Binary', desc: 'Add page numbers to PDF.', isPlaceholder: true }
+      { id: 'numbers', name: 'Page Numbers', icon: 'Binary', desc: 'Add page numbers to PDF.', isPlaceholder: false }
     ]
   },
   {
