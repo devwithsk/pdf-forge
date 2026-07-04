@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext';
 import DragDropZone from '../components/DragDropZone';
 import ProcessingOverlay from '../components/ProcessingOverlay';
 import AdBanner from '../components/AdBanner';
+import PDFPageGrid from '../components/PDFPageGrid';
 import api from '../utils/api';
 import { ArrowLeft, ArrowRight, Check, ShieldAlert, Download, RefreshCw, FileCheck, Plus, Trash2, File } from 'lucide-react';
 
@@ -193,6 +194,10 @@ const ToolPage = () => {
   const [pdfToPptSize, setPdfToPptSize] = useState('16:9'); // '16:9', '4:3'
   const [pdfToPptVectorMode, setPdfToPptVectorMode] = useState(false);
 
+  // Remove Pages / Organize PDF page order state
+  // Array of 0-based page indices in the desired output order
+  const [pageOrder, setPageOrder] = useState([]);
+
   useEffect(() => {
     const currentTool = tools.find(t => t.id === toolId);
     if (!currentTool) {
@@ -229,6 +234,7 @@ const ToolPage = () => {
       setPdfToExcelSingleSheet(false);
       setPdfToPptSize('16:9');
       setPdfToPptVectorMode(false);
+      setPageOrder([]); // Reset page order on tool switch
     }
   }, [toolId, tools, navigate]);
 
@@ -330,6 +336,12 @@ const ToolPage = () => {
       };
       formData.append('settings', JSON.stringify(settingsPayload));
       setStatusText('Merging PDF files...');
+    } else if (tool.id === 'remove-pages') {
+      formData.append('settings', JSON.stringify({ pageOrder }));
+      setStatusText('Removing selected pages from PDF...');
+    } else if (tool.id === 'organize-pdf') {
+      formData.append('settings', JSON.stringify({ pageOrder }));
+      setStatusText('Reordering PDF pages...');
     }
 
     // Append files after fields
@@ -799,6 +811,12 @@ const ToolPage = () => {
             </div>
           </div>
         );
+      // For Remove Pages and Organize PDF: the interactive UI is rendered in the
+      // main left panel (PDFPageGrid), not in the settings sidebar.
+      // These cases return null so the sidebar stays clean.
+      case 'remove-pages':
+      case 'organize-pdf':
+        return null;
       default:
         return null;
     }
@@ -813,6 +831,8 @@ const ToolPage = () => {
   };
 
   const hasFiles = files.length > 0;
+  // Determine if this is a page-manipulation tool that renders PDFPageGrid
+  const isPageTool = tool.id === 'remove-pages' || tool.id === 'organize-pdf';
   const showDesktopSplit = isLargeScreen && hasFiles && !successResult;
 
   return (
@@ -880,6 +900,7 @@ const ToolPage = () => {
                     setPaperSize('A4');
                     setOrientation('Portrait');
                     setMergeMode('merge');
+                    setPageOrder([]);
                   }}
                   className="flex-grow py-3 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl font-bold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
@@ -903,10 +924,8 @@ const ToolPage = () => {
                   />
 
                   <div className="flex flex-col lg:flex-row items-stretch lg:h-full w-full min-h-0">
-                    {/* Left Section (Main Preview Workspace) */}
                     <div className="flex-1 bg-gray-50 p-6 overflow-y-auto lg:h-full relative flex flex-col min-h-0">
-                      {/* Sticky FAB to Add More Files */}
-                      {tool.multiple && (
+                      {tool.multiple && !isPageTool && (
                         <div className="sticky top-0 z-30 flex justify-end pointer-events-none mb-[-48px]">
                           <button
                             type="button"
@@ -921,11 +940,10 @@ const ToolPage = () => {
 
                       <div className="flex justify-between items-center mb-6 pr-14 shrink-0">
                         <h3 className="font-black text-slate-800 text-base md:text-lg">
-                          Selected Files ({files.length})
+                          {isPageTool ? tool.name : `Selected Files (${files.length})`}
                         </h3>
                       </div>
 
-                      {/* Error message inside workspace if error exists */}
                       {errorMsg && (
                         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-sm flex items-start gap-2 shrink-0">
                           <ShieldAlert size={20} className="shrink-0 mt-0.5 text-red-500" />
@@ -936,28 +954,33 @@ const ToolPage = () => {
                         </div>
                       )}
 
-                      {/* Large Responsive Grid of File Previews */}
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4 gap-x-3 gap-y-4 p-1 justify-items-center flex-grow overflow-y-auto">
-                        {files.map((file, idx) => (
-                          <FilePreviewCard
-                            key={`${file.name}-${idx}`}
-                            file={file}
-                            index={idx}
-                            totalFiles={files.length}
-                            onRemove={() => removeFile(idx)}
-                            onMoveLeft={() => moveFile(idx, -1)}
-                            onMoveRight={() => moveFile(idx, 1)}
-                            isMultiple={tool.multiple}
-                            formatSize={formatSize}
-                          />
-                        ))}
-                      </div>
+                      {isPageTool ? (
+                        <PDFPageGrid
+                          pdfFile={files[0]}
+                          mode={tool.id === 'remove-pages' ? 'remove' : 'organize'}
+                          onPagesChange={setPageOrder}
+                        />
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4 gap-x-3 gap-y-4 p-1 justify-items-center flex-grow overflow-y-auto">
+                          {files.map((file, idx) => (
+                            <FilePreviewCard
+                              key={`${file.name}-${idx}`}
+                              file={file}
+                              index={idx}
+                              totalFiles={files.length}
+                              onRemove={() => removeFile(idx)}
+                              onMoveLeft={() => moveFile(idx, -1)}
+                              onMoveRight={() => moveFile(idx, 1)}
+                              isMultiple={tool.multiple}
+                              formatSize={formatSize}
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
 
-                    {/* Right Section (Settings & Action Sidebar) */}
                     <div className="w-full lg:w-96 bg-white p-6 border-t lg:border-t-0 lg:border-l border-slate-200 flex flex-col justify-between lg:h-full shrink-0 min-h-0">
                       <div className="space-y-6 overflow-y-auto pb-6 flex-grow min-h-0">
-                        {/* Tool Title and Description */}
                         <div>
                           <h3 className="text-xl font-black text-slate-900 leading-tight">{tool.name}</h3>
                           <p className="text-slate-500 text-xs mt-2 leading-relaxed">{tool.desc}</p>
@@ -979,9 +1002,9 @@ const ToolPage = () => {
                       <div className="pt-4 border-t border-slate-100 shrink-0 bg-white">
                         <button
                           type="submit"
-                          disabled={files.length === 0}
+                          disabled={files.length === 0 || (isPageTool && pageOrder.length === 0)}
                           className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer ${
-                            files.length > 0
+                            files.length > 0 && (!isPageTool || pageOrder.length > 0)
                               ? 'bg-primary text-white hover:bg-primary-dark shadow-primary/20 hover:scale-[1.01]'
                               : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
                           }`}

@@ -121,6 +121,34 @@ def rotate_pdf(file_path, output_path, degrees=90):
         writer.write(f)
     return output_path
 
+def reorder_pdf_pages(input_path, output_path, page_order):
+    """
+    Writes a new PDF containing exactly the pages specified in page_order.
+    page_order is a list of 0-based page indices in the desired output order.
+    This serves both 'remove-pages' (subset with same order) and
+    'organize-pdf' (full set with different order) tools.
+    """
+    reader = assert_pdf_limits(input_path)
+    total_pages = len(reader.pages)
+    
+    if not page_order:
+        raise ValueError("page_order must contain at least one page index.")
+    
+    for idx in page_order:
+        if not isinstance(idx, int) or idx < 0 or idx >= total_pages:
+            raise ValueError(
+                f"Invalid page index {idx}. PDF has {total_pages} pages (0-indexed)."
+            )
+    
+    writer = PdfWriter()
+    for idx in page_order:
+        writer.add_page(reader.pages[idx])
+    
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "wb") as f:
+        writer.write(f)
+    return output_path
+
 def main():
     try:
         # Check command line arguments first
@@ -147,6 +175,13 @@ def main():
                 output = sys.argv[3]
                 degrees = int(sys.argv[4]) if len(sys.argv) > 4 else 90
                 result = rotate_pdf(file_path, output, degrees)
+                print(json.dumps({"success": True, "output": result}))
+                return
+            elif action == "reorder":
+                file_path = sys.argv[2]
+                output = sys.argv[3]
+                page_order = [int(x) for x in sys.argv[4].split(",")] if len(sys.argv) > 4 else []
+                result = reorder_pdf_pages(file_path, output, page_order)
                 print(json.dumps({"success": True, "output": result}))
                 return
 
@@ -180,6 +215,13 @@ def main():
             output = params.get("output")
             degrees = int(params.get("degrees", 90))
             result = rotate_pdf(file_path, output, degrees)
+            print(json.dumps({"success": True, "output": result}))
+        
+        elif action == "reorder":
+            file_path = params.get("file")
+            output = params.get("output")
+            page_order = [int(i) for i in params.get("page_order", [])]
+            result = reorder_pdf_pages(file_path, output, page_order)
             print(json.dumps({"success": True, "output": result}))
             
         else:

@@ -26,6 +26,28 @@ export const TOOLS = [
     multiple: false
   },
   {
+    id: 'remove-pages',
+    name: 'Remove Pages',
+    desc: 'Select and permanently delete unwanted pages from your PDF document.',
+    icon: 'Trash2',
+    module: 'Basic File Manipulation',
+    category: 'organize',
+    endpoint: '/remove-pages',
+    accept: '.pdf',
+    multiple: false
+  },
+  {
+    id: 'organize-pdf',
+    name: 'Organize PDF',
+    desc: 'Drag and drop to freely reorder the pages of your PDF document.',
+    icon: 'FolderSync',
+    module: 'Basic File Manipulation',
+    category: 'organize',
+    endpoint: '/organize-pdf',
+    accept: '.pdf',
+    multiple: false
+  },
+  {
     id: 'rotate',
     name: 'Rotate PDF',
     desc: 'Rotate PDF pages clockwise by 90, 180, or 270 degrees.',
@@ -177,8 +199,8 @@ export const CATEGORIES = [
     tools: [
       { id: 'merge', name: 'Merge PDF', icon: 'Layers', desc: 'Combine multiple PDF files.', isPlaceholder: false },
       { id: 'split', name: 'Split PDF', icon: 'Scissors', desc: 'Split a PDF into multiple files.', isPlaceholder: false },
-      { id: 'remove', name: 'Remove Pages', icon: 'Trash2', desc: 'Remove unwanted pages.', isPlaceholder: true },
-      { id: 'organize-tool', name: 'Organize PDF', icon: 'FolderSync', desc: 'Reorder pages in a PDF.', isPlaceholder: true }
+      { id: 'remove-pages', name: 'Remove Pages', icon: 'Trash2', desc: 'Remove unwanted pages.', isPlaceholder: false },
+      { id: 'organize-pdf', name: 'Organize PDF', icon: 'FolderSync', desc: 'Reorder pages in a PDF.', isPlaceholder: false }
     ]
   },
   {

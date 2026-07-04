@@ -963,6 +963,110 @@ exports.htmlToPdf = async (req, res) => {
   }
 };
 
+exports.removePages = async (req, res) => {
+  const startTime = Date.now();
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: 'Please upload a PDF file.' });
+  }
+
+  const fileSize = req.file.size;
+  const { jobDir, inputPaths } = initJob(req);
+  const outputFileName = `removed-pages-${uuidv4()}.pdf`;
+  const outputPath = path.join(jobDir, outputFileName);
+
+  let settings = {};
+  if (req.body.settings) {
+    try {
+      settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings;
+    } catch (e) {
+      console.error('Failed to parse settings:', e);
+    }
+  }
+
+  const pageOrder = Array.isArray(settings.pageOrder) ? settings.pageOrder.map(Number) : [];
+  if (pageOrder.length === 0) {
+    cleanupJob(jobDir, inputPaths, false);
+    return res.status(400).json({ success: false, error: 'No pages selected. Please keep at least one page.' });
+  }
+
+  try {
+    const resultPath = await executePython('basic_manipulation.py', {
+      action: 'reorder',
+      file: inputPaths[0],
+      output: outputPath,
+      page_order: pageOrder
+    });
+
+    await logAnalytics('remove-pages', 1, fileSize, 'success', startTime);
+    const token = createDownloadToken(resultPath, outputFileName);
+
+    res.json({
+      success: true,
+      downloadUrl: `/download/${token}`,
+      fileName: outputFileName,
+      size: fs.statSync(resultPath).size
+    });
+  } catch (err) {
+    await logAnalytics('remove-pages', 1, fileSize, 'failed', startTime, err.message, err.stack);
+    cleanupJob(jobDir, inputPaths, false);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    cleanupJob(jobDir, inputPaths, true);
+  }
+};
+
+exports.organizePdf = async (req, res) => {
+  const startTime = Date.now();
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: 'Please upload a PDF file.' });
+  }
+
+  const fileSize = req.file.size;
+  const { jobDir, inputPaths } = initJob(req);
+  const outputFileName = `organized-${uuidv4()}.pdf`;
+  const outputPath = path.join(jobDir, outputFileName);
+
+  let settings = {};
+  if (req.body.settings) {
+    try {
+      settings = typeof req.body.settings === 'string' ? JSON.parse(req.body.settings) : req.body.settings;
+    } catch (e) {
+      console.error('Failed to parse settings:', e);
+    }
+  }
+
+  const pageOrder = Array.isArray(settings.pageOrder) ? settings.pageOrder.map(Number) : [];
+  if (pageOrder.length === 0) {
+    cleanupJob(jobDir, inputPaths, false);
+    return res.status(400).json({ success: false, error: 'No pages in order array. Please provide a valid page order.' });
+  }
+
+  try {
+    const resultPath = await executePython('basic_manipulation.py', {
+      action: 'reorder',
+      file: inputPaths[0],
+      output: outputPath,
+      page_order: pageOrder
+    });
+
+    await logAnalytics('organize-pdf', 1, fileSize, 'success', startTime);
+    const token = createDownloadToken(resultPath, outputFileName);
+
+    res.json({
+      success: true,
+      downloadUrl: `/download/${token}`,
+      fileName: outputFileName,
+      size: fs.statSync(resultPath).size
+    });
+  } catch (err) {
+    await logAnalytics('organize-pdf', 1, fileSize, 'failed', startTime, err.message, err.stack);
+    cleanupJob(jobDir, inputPaths, false);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    cleanupJob(jobDir, inputPaths, true);
+  }
+};
+
 // API Endpoint to fetch general conversion metrics for frontend visual show
 exports.getAnalytics = async (req, res) => {
   try {

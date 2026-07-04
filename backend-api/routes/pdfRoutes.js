@@ -8,6 +8,8 @@ const pdfController = require('../controllers/pdfController');
 router.post('/merge', limiter, upload.array('files', 20), pdfController.mergePDF);
 router.post('/split', limiter, upload.single('file'), pdfController.splitPDF);
 router.post('/rotate', limiter, upload.single('file'), pdfController.rotatePDF);
+router.post('/remove-pages', limiter, upload.single('file'), pdfController.removePages);
+router.post('/organize-pdf', limiter, upload.single('file'), pdfController.organizePdf);
 
 // Module 2: Security & Formatting
 router.post('/protect', limiter, upload.single('file'), pdfController.protectPDF);
