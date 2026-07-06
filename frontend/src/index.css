@@ -63,3 +63,93 @@
 .animate-spinner {
   animation: spinner 0.8s linear infinite;
 }
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Dark Mode Base Styles */
+html.dark body {
+  background-color: #020617; /* Slate 950 base */
+  color: #f8fafc;
+}
+
+/* Global Dark Theme Component Overrides */
+html.dark .bg-white {
+  background-color: #0f172a !important; /* Slate 900 cards/nav */
+  color: #f8fafc !important;
+}
+
+html.dark .bg-slate-50,
+html.dark .bg-gray-50 {
+  background-color: #1e293b50 !important; /* Slate 800/30 panels */
+}
+
+html.dark .border-slate-200,
+html.dark .border-slate-250,
+html.dark .border-slate-200\/80,
+html.dark .border-slate-100,
+html.dark .border-slate-100\/80 {
+  border-color: #1e293b !important; /* Slate 800 border */
+}
+
+html.dark .text-slate-900 { color: #f1f5f9 !important; }
+html.dark .text-slate-800 { color: #e2e8f0 !important; }
+html.dark .text-slate-700 { color: #cbd5e1 !important; }
+html.dark .text-slate-600 { color: #94a3b8 !important; }
+html.dark .text-slate-500 { color: #94a3b8 !important; }
+html.dark .text-slate-400 { color: #64748b !important; }
+
+/* Inputs and Forms Overrides */
+html.dark input[type="text"],
+html.dark input[type="password"],
+html.dark input[type="number"],
+html.dark input[type="email"],
+html.dark select,
+html.dark textarea {
+  background-color: #1e293b !important; /* Slate 800 inputs */
+  border-color: #334155 !important; /* Slate 700 borders */
+  color: #f8fafc !important;
+}
+
+html.dark input::placeholder {
+  color: #64748b !important;
+}
+
+html.dark select option {
+  background-color: #1e293b;
+  color: #f8fafc;
+}
+
+html.dark .shadow-premium {
+  box-shadow: none !important;
+}
+
+/* Dropdown Float Animation */
+@keyframes float {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-float {
+  animation: float 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+

@@ -10,3 +10,5 @@ python-pptx>=0.6.21
 fastapi>=0.100.0
 uvicorn>=0.20.0
 python-multipart>=0.0.5
+supabase
+python-dotenv

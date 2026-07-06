@@ -12,6 +12,11 @@ import zipfile
 from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
 
 # Append python-engine/modules directory to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -57,6 +62,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Register routers
+from routes.ai_routes import ai_router
+app.include_router(ai_router)
+
 
 # Temporary directories
 JOBS_DIR = os.path.join(current_dir, 'jobs')

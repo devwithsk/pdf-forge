@@ -281,8 +281,17 @@ const CATEGORIES = [
       { id: 'protect', name: 'Protect PDF', icon: 'Lock', desc: 'Secure PDF with a password.', isPlaceholder: false },
       { id: 'unlock', name: 'Unlock PDF', icon: 'Unlock', desc: 'Remove PDF password security.', isPlaceholder: false }
     ]
+  },
+  {
+    id: 'ai',
+    name: 'AI Tools',
+    tools: [
+      { id: 'chat-pdf', name: 'Chat with PDF', icon: 'Brain', desc: 'Interact and chat with your PDF using AI.', isPlaceholder: false, requiresAuth: true, isAI: true },
+      { id: 'ai-extractor', name: 'AI Data Extractor', icon: 'Sparkles', desc: 'Extract key data, tables, and insights.', isPlaceholder: false, requiresAuth: true, isAI: true }
+    ]
   }
 ];
+
 
 export const AppProvider = ({ children }) => {
   const [conversionResult, setConversionResult] = useState(null); // { downloadUrl, fileName, size }

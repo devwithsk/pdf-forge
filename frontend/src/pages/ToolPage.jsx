@@ -963,15 +963,15 @@ const ToolPage = () => {
     <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${showDesktopSplit ? 'py-2 lg:h-[calc(100vh-90px)] lg:overflow-hidden flex flex-col' : 'py-8'}`}>
       {/* Back to Home */}
       <div className={`flex items-center justify-between mb-4 shrink-0`}>
-        <Link to="/" className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-900 font-semibold text-xs uppercase tracking-wider">
+        <Link to="/" className="inline-flex items-center gap-1 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-semibold text-xs uppercase tracking-wider transition-colors">
           <ArrowLeft size={16} /> Back to Tools
         </Link>
-        <div className="text-slate-400 text-xs font-semibold">100% Secure & Clean</div>
+        <div className="text-slate-400 dark:text-slate-500 text-xs font-semibold transition-colors">100% Secure & Clean</div>
       </div>
 
       {/* Workspace Container */}
       <div className={`${showDesktopSplit ? 'max-w-7xl lg:flex-grow lg:min-h-0 lg:my-2 w-full' : 'max-w-3xl my-8'} mx-auto`}>
-        <div className={`bg-white border border-slate-200/80 rounded-3xl shadow-premium ${showDesktopSplit ? 'p-0 lg:h-full overflow-hidden' : 'p-6 md:p-8'}`}>
+        <div className={`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-3xl shadow-premium dark:shadow-none transition-colors ${showDesktopSplit ? 'p-0 lg:h-full overflow-hidden' : 'p-6 md:p-8'}`}>
 
           {successResult ? (
             <div className="flex flex-col items-center text-center py-6 p-6 md:p-8">
@@ -1106,18 +1106,18 @@ const ToolPage = () => {
                       )}
                     </div>
 
-                    <div className="w-full lg:w-96 bg-white p-6 border-t lg:border-t-0 lg:border-l border-slate-200 flex flex-col justify-between lg:h-full shrink-0 min-h-0">
+                    <div className="w-full lg:w-96 bg-white dark:bg-slate-900 p-6 border-t lg:border-t-0 lg:border-l border-slate-200 dark:border-slate-800 flex flex-col justify-between lg:h-full shrink-0 min-h-0 transition-colors">
                       <div className="space-y-6 overflow-y-auto pb-6 flex-grow min-h-0">
                         <div>
-                          <h3 className="text-xl font-black text-slate-900 leading-tight">{tool.name}</h3>
-                          <p className="text-slate-500 text-xs mt-2 leading-relaxed">{tool.desc}</p>
-                          <div className="h-px bg-slate-100 my-4" />
+                          <h3 className="text-xl font-black text-slate-900 dark:text-slate-100 leading-tight transition-colors">{tool.name}</h3>
+                          <p className="text-slate-500 dark:text-slate-400 text-xs mt-2 leading-relaxed transition-colors">{tool.desc}</p>
+                          <div className="h-px bg-slate-100 dark:bg-slate-800 my-4 transition-colors" />
                         </div>
 
                         {/* Tool parameters settings blocks */}
                         {renderSettings() && (
                           <div className="space-y-4">
-                            <h4 className="font-bold text-slate-800 text-sm border-b border-slate-100 pb-2">
+                            <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm border-b border-slate-100 dark:border-slate-800 pb-2 transition-colors">
                               Configure Settings
                             </h4>
                             {renderSettings()}
@@ -1126,13 +1126,13 @@ const ToolPage = () => {
                       </div>
 
                       {/* Process button - Pinned/Sticky at Bottom */}
-                      <div className="pt-4 border-t border-slate-100 shrink-0 bg-white">
+                      <div className="pt-4 border-t border-slate-100 dark:border-slate-800 shrink-0 bg-white dark:bg-slate-900 transition-colors">
                         <button
                           type="submit"
                           disabled={files.length === 0 || (isPageTool && pageOrder.length === 0)}
-                          className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer ${files.length > 0 && (!isPageTool || pageOrder.length > 0)
+                          className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md dark:shadow-none cursor-pointer ${files.length > 0 && (!isPageTool || pageOrder.length > 0)
                               ? 'bg-primary text-white hover:bg-primary-dark shadow-primary/20 hover:scale-[1.01]'
-                              : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none'
                             }`}
                         >
                           <Check size={16} /> Process Document
@@ -1145,8 +1145,8 @@ const ToolPage = () => {
                 /* MOBILE VIEW & STANDARD VIEW BEFORE UPLOAD (Identical to original sequential structure) */
                 <>
                   <div className="text-center mb-8">
-                    <h2 className="text-2xl md:text-3xl font-black text-slate-900">{tool.name}</h2>
-                    <p className="text-slate-500 text-xs md:text-sm mt-2 max-w-lg mx-auto leading-relaxed">{tool.desc}</p>
+                    <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-slate-100 transition-colors">{tool.name}</h2>
+                    <p className="text-slate-500 dark:text-slate-400 text-xs md:text-sm mt-2 max-w-lg mx-auto leading-relaxed transition-colors">{tool.desc}</p>
                   </div>
 
                   {errorMsg && !hasFiles && (
@@ -1169,10 +1169,9 @@ const ToolPage = () => {
                     />
 
                     {/* Tool specific parameters form panels */}
-                    {/* Tool specific parameters form panels */}
                     {hasFiles && renderSettings() && (
-                      <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-4 text-left">
-                        <h3 className="font-bold text-slate-800 text-sm border-b border-slate-200 pb-2">
+                      <div className="p-5 bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800 rounded-2xl space-y-4 text-left transition-colors">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm border-b border-slate-200 dark:border-slate-800 pb-2 transition-colors">
                           Configure Settings
                         </h3>
                         {renderSettings()}
@@ -1183,9 +1182,9 @@ const ToolPage = () => {
                       type="submit"
                       onClick={handleSubmit}
                       disabled={files.length === 0 || (isPageTool && pageOrder.length === 0)}
-                      className={`relative z-10 w-full py-4 rounded-2xl font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer ${files.length > 0 && (!isPageTool || pageOrder.length > 0)
+                      className={`relative z-10 w-full py-4 rounded-2xl font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md dark:shadow-none cursor-pointer ${files.length > 0 && (!isPageTool || pageOrder.length > 0)
                           ? 'bg-primary text-white hover:bg-primary-dark shadow-primary/20 hover:scale-[1.01]'
-                          : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none'
                         }`}
                     >
                       <Check size={16} /> Process Document

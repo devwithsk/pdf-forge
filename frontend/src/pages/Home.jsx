@@ -61,6 +61,8 @@ const Home = () => {
         matchesFilter = tool.category === 'edit';
       } else if (activeFilter === 'security') {
         matchesFilter = tool.category === 'security';
+      } else if (activeFilter === 'ai') {
+        matchesFilter = tool.category === 'ai';
       }
 
       // 2. Search keyword match
@@ -74,6 +76,16 @@ const Home = () => {
     });
   }, [allTools, activeFilter, searchTerm]);
 
+  // Sort tools dynamically so that any tool with isNew or isAI appears first
+  const sortedTools = useMemo(() => {
+    return [...filteredTools].sort((a, b) => {
+      const aVal = (a.isNew || a.isAI) ? 1 : 0;
+      const bVal = (b.isNew || b.isAI) ? 1 : 0;
+      return bVal - aVal;
+    });
+  }, [filteredTools]);
+
+
   // Filter tab list configuration
   const filterTabs = [
     { id: 'all', label: 'All' },
@@ -81,8 +93,10 @@ const Home = () => {
     { id: 'optimize', label: 'Optimize PDF' },
     { id: 'convert', label: 'Convert PDF' },
     { id: 'edit', label: 'Edit PDF' },
-    { id: 'security', label: 'PDF Security' }
+    { id: 'security', label: 'PDF Security' },
+    { id: 'ai', label: 'AI Tools' }
   ];
+
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -94,21 +108,21 @@ const Home = () => {
         <div className="inline-flex items-center gap-1.5 px-3 py-1.2 rounded-full bg-primary/10 text-primary font-bold text-xs uppercase tracking-wider mb-4 animate-pulse-slow">
           <Sparkles size={11} /> 100% Free PDF Tools
         </div>
-        <h1 className="text-3xl md:text-5xl font-black text-slate-900 leading-tight tracking-tight">
+        <h1 className="text-3xl md:text-5xl font-black text-slate-900 dark:text-slate-100 leading-tight tracking-tight transition-colors">
           Every tool you need to <span className="text-primary">Forge</span> PDFs
         </h1>
-        <p className="text-slate-500 text-sm md:text-base mt-2.5 max-w-2xl mx-auto leading-relaxed font-medium">
+        <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base mt-2.5 max-w-2xl mx-auto leading-relaxed font-medium transition-colors">
           Zero sign-up wall. Drag and drop your documents to process them in seconds. Absolute privacy, absolute speed.
         </p>
 
         {/* Global conversion metrics banner */}
-        <div className="mt-4 flex justify-center items-center gap-4 text-[11px] font-bold text-slate-500">
+        <div className="mt-4 flex justify-center items-center gap-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 transition-colors">
           <span className="flex items-center gap-1"><CheckCircle size={12} className="text-green-500" /> Secure Processing</span>
-          <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+          <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-700"></span>
           <span className="flex items-center gap-1">
             <FileText size={12} className="text-primary" />
             {stats === null ? (
-              <span className="w-8 h-3 bg-slate-200 animate-pulse rounded inline-block" />
+              <span className="w-8 h-3 bg-slate-200 dark:bg-slate-800 animate-pulse rounded inline-block" />
             ) : (
               (stats?.totalConversions || 0).toLocaleString()
             )}+ Files Forged Today
@@ -116,8 +130,8 @@ const Home = () => {
         </div>
 
         {/* Search Bar */}
-        <div className="mt-6 relative max-w-lg mx-auto shadow-sm rounded-xl">
-          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+        <div className="mt-6 relative max-w-lg mx-auto shadow-sm dark:shadow-none rounded-xl">
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
             <Search size={16} />
           </div>
           <input
@@ -125,7 +139,7 @@ const Home = () => {
             placeholder="Search PDF tools (e.g. Merge, Protect, Word to PDF...)"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="block w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-xs md:text-sm placeholder:text-slate-400 font-medium"
+            className="block w-full pl-10 pr-4 py-3 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-xs md:text-sm placeholder:text-slate-400 dark:placeholder-slate-500 font-medium transition-colors"
           />
         </div>
       </div>
@@ -138,8 +152,8 @@ const Home = () => {
             onClick={() => setActiveFilter(tab.id)}
             className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all tracking-wide ${
               activeFilter === tab.id
-                ? 'bg-slate-900 text-white shadow-sm border border-slate-900'
-                : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200/80 hover:border-slate-300'
+                ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-950 shadow-sm dark:shadow-none border border-slate-900 dark:border-slate-100'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
             }`}
           >
             {tab.label}
@@ -148,13 +162,13 @@ const Home = () => {
       </div>
 
       {/* Tools Grid Layout (Dense layout, 1 column on mobile) */}
-      {filteredTools.length === 0 ? (
+      {sortedTools.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-slate-400 font-semibold text-sm">No tools found matching the criteria.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 my-6">
-          {filteredTools.map(tool => (
+          {sortedTools.map(tool => (
             <ToolCard key={tool?.id || tool?.name} tool={tool} />
           ))}
         </div>
