@@ -98,8 +98,7 @@ const AiHub = () => {
     formData.append('file', selectedFile);
     
     try {
-      const baseUrl = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
-      const response = await api.post(`${baseUrl}/api/ai/upload`, formData, {
+      const response = await api.post('/ai/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -131,7 +130,7 @@ const AiHub = () => {
       console.error(err);
       setStatusMsg({ 
         type: 'error', 
-        text: err.response?.data?.detail || 'Failed to process document. Please try again.' 
+        text: err.response?.data?.error || err.response?.data?.detail || 'Failed to process document. Please try again.' 
       });
     } finally {
       setUploading(false);
@@ -160,8 +159,7 @@ const AiHub = () => {
     setMessages(prev => [...prev, { sender: 'user', text: userMsg }]);
     
     try {
-      const baseUrl = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
-      const response = await api.post(`${baseUrl}/api/ai/chat`, {
+      const response = await api.post('/ai/chat', {
         prompt: userMsg,
         email: user?.email,
         document_name: activeDocument

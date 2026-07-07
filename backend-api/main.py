@@ -6,6 +6,7 @@ import json
 import shutil
 import secrets
 import re
+import logging
 from typing import List
 import zipfile
 
@@ -47,6 +48,7 @@ from basic_manipulation import (
 from security import protect_pdf, unlock_pdf, watermark_pdf
 
 app = FastAPI(title="PDF Forge Python API")
+logger = logging.getLogger("pdf-forge-api")
 
 # Configure CORS
 allowed_origins = [
@@ -201,6 +203,12 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 def startup_cleanup():
     purge_expired_download_tokens()
     cleanup_stale_job_dirs()
+    registered_routes = sorted(
+        f"{','.join(sorted(route.methods or []))} {route.path}"
+        for route in app.routes
+        if hasattr(route, "methods")
+    )
+    logger.info("Registered API routes: %s", " | ".join(registered_routes))
 
 @app.get("/")
 def read_root():
@@ -1248,6 +1256,8 @@ async def excel_to_pdf_endpoint(
         remove_file_or_dir(job_dir)
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/convert/pdf-to-docx")
+@app.post("/api/convert/pdf-to-docx")
 @app.post("/api/pdf2word")
 async def pdf_to_word_endpoint(
     files: List[UploadFile] = File(...),
