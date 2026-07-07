@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ProtectedRoute from './components/ProtectedRoute';
 import Profile from './pages/Profile';
+import AiHub from './pages/AiHub';
 import { useApp } from './context/AppContext';
 
 function App() {
@@ -27,6 +28,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Profile />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/ai-hub" 
+            element={
+              <ProtectedRoute>
+                <AiHub />
               </ProtectedRoute>
             } 
           />
