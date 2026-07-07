@@ -64,7 +64,7 @@ app.add_middleware(
 )
 
 # Register routers
-from routes.ai_routes import ai_router
+from routes.ai_routes import router as ai_router
 app.include_router(ai_router, prefix="/api/ai", tags=["AI"])
 
 

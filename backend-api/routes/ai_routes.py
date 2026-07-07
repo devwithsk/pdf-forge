@@ -7,7 +7,7 @@ from dependencies import get_db_service
 from services.ai import extract_and_chunk_pdf, store_document_chunks, retrieve_relevant_context, generate_rag_prompt, generate_answer
 
 # Define the APIRouter for AI tools
-ai_router = APIRouter(tags=["AI Tools"])
+router = APIRouter(tags=["AI Tools"])
 
 class ChatRequest(BaseModel):
     prompt: str
@@ -15,7 +15,7 @@ class ChatRequest(BaseModel):
     document_name: str = ""  # Document filter option
 
 
-@ai_router.post("/upload")
+@router.post("/upload")
 async def upload_pdf_for_rag(
     email: str = Form(...),
     file: UploadFile = File(...),
@@ -65,7 +65,7 @@ async def upload_pdf_for_rag(
             os.remove(temp_file_path)
 
 
-@ai_router.post("/chat")
+@router.post("/chat")
 async def chat(request: ChatRequest, db: DatabaseService = Depends(get_db_service)):
     """
     Retrieves semantic matches for the user prompt and generates context-aware RAG prompt.
