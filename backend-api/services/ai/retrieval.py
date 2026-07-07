@@ -1,4 +1,5 @@
 import os
+import json
 import numpy as np
 from typing import List
 from langchain_core.documents import Document
@@ -66,7 +67,7 @@ def retrieve_relevant_context(
         
     # Embed the query
     embedding_model = get_embedding_model()
-    query_vector = np.array(embedding_model.embed_query(query))
+    query_vector = np.array(embedding_model.embed_query(query), dtype=float)
     
     # Calculate cosine similarity for each record
     scored_docs = []
@@ -78,7 +79,16 @@ def retrieve_relevant_context(
         if not content or not emb_list:
             continue
             
-        emb_vector = np.array(emb_list)
+        if isinstance(emb_list, str):
+            try:
+                emb_list = json.loads(emb_list)
+            except (ValueError, TypeError):
+                continue
+                
+        try:
+            emb_vector = np.array(emb_list, dtype=float)
+        except (ValueError, TypeError):
+            continue
         
         # Compute cosine similarity: (A . B) / (||A|| * ||B||)
         dot_product = np.dot(query_vector, emb_vector)

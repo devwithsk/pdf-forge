@@ -66,8 +66,12 @@ app.add_middleware(
 )
 
 # Register routers
-from routes.ai_routes import router as ai_router
-app.include_router(ai_router, prefix="/api/ai", tags=["AI"])
+try:
+    from routes.ai_routes import router as ai_router
+    app.include_router(ai_router, prefix="/api/ai", tags=["AI"])
+    logger.info("AI router registered successfully at /api/ai")
+except Exception as e:
+    logger.error("Failed to register AI router: %s", e, exc_info=True)
 
 
 # Temporary directories
