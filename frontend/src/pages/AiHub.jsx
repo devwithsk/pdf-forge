@@ -98,7 +98,8 @@ const AiHub = () => {
     formData.append('file', selectedFile);
     
     try {
-      const response = await api.post('/ai/upload', formData, {
+      const baseUrl = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
+      const response = await api.post(`${baseUrl}/api/ai/upload`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -159,7 +160,8 @@ const AiHub = () => {
     setMessages(prev => [...prev, { sender: 'user', text: userMsg }]);
     
     try {
-      const response = await api.post('/ai/chat', {
+      const baseUrl = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
+      const response = await api.post(`${baseUrl}/api/ai/chat`, {
         prompt: userMsg,
         email: user?.email,
         document_name: activeDocument
@@ -477,9 +479,10 @@ const AiHub = () => {
                     <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20">
                       <Bot size={14} />
                     </div>
-                    <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-2xl rounded-tl-none flex items-center gap-2">
-                      <Loader2 size={14} className="animate-spin text-primary" />
-                      <span className="text-xs text-slate-500 font-semibold">Analyzing document context...</span>
+                    <div className="bg-slate-100 dark:bg-slate-800 px-4 py-3 rounded-2xl rounded-tl-none flex items-center gap-1.5 min-h-[36px]">
+                      <div className="w-1.5 h-1.5 bg-slate-400 dark:bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <div className="w-1.5 h-1.5 bg-slate-400 dark:bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <div className="w-1.5 h-1.5 bg-slate-400 dark:bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                     </div>
                   </div>
                 )}

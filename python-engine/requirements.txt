@@ -12,3 +12,9 @@ uvicorn>=0.20.0
 python-multipart>=0.0.5
 supabase
 python-dotenv
+langchain>=0.1.0
+langchain-community>=0.0.10
+langchain-core>=0.1.0
+sentence-transformers>=2.2.2
+psycopg2-binary>=2.9.9
+langchain-google-genai
