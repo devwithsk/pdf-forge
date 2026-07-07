@@ -148,7 +148,8 @@ def generate_answer(query: str, context_docs: List[Document]) -> str:
         llm = ChatGoogleGenerativeAI(
             model="gemini-flash-latest",
             google_api_key=google_api_key,
-            temperature=0.2
+            temperature=0.2,
+            thinking_level="low",
         )
         
         # Prepare context text
@@ -177,6 +178,17 @@ Answer:"""
             "question": query
         })
         
-        return response.content
+        answer = response.content
+        if isinstance(answer, list):
+            text_parts = []
+            for part in answer:
+                if isinstance(part, dict) and "text" in part:
+                    text_parts.append(part["text"])
+                elif isinstance(part, str):
+                    text_parts.append(part)
+            answer = "".join(text_parts).strip()
+        if not isinstance(answer, str):
+            answer = str(answer)
+        return answer
     except Exception as e:
         return f"Error invoking Gemini LLM: {str(e)}"
