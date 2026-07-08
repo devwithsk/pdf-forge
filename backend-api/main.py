@@ -18,6 +18,9 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+from pydantic import BaseModel
+from services.email_service import send_contact_notification
+
 
 # Append python-engine/modules directory to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -226,6 +229,23 @@ def get_analytics():
         "totalMerges": 12450,
         "totalConversions": 8120
     }
+
+class ContactNotificationRequest(BaseModel):
+    name: str
+    email: str
+    topic: str
+    message: str
+
+@app.post("/api/contact/notify")
+async def contact_notify_endpoint(request: ContactNotificationRequest, background_tasks: BackgroundTasks):
+    background_tasks.add_task(
+        send_contact_notification,
+        name=request.name,
+        email=request.email,
+        topic=request.topic,
+        message=request.message
+    )
+    return {"success": True, "message": "Email notification queued."}
 
 @app.get("/download/{token}")
 async def secure_download(token: str, background_tasks: BackgroundTasks):

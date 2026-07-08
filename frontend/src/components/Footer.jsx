@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import AdBanner from './AdBanner';
 
 const Footer = () => {
@@ -20,10 +21,10 @@ const Footer = () => {
           <div>
             <h4 className="text-white font-bold text-sm mb-4 uppercase tracking-wider">Services</h4>
             <ul className="space-y-2 text-sm">
-              <li><a href="/tool/merge" className="hover:text-white transition-colors">Merge PDF</a></li>
-              <li><a href="/tool/split" className="hover:text-white transition-colors">Split PDF</a></li>
-              <li><a href="/tool/pdf2jpg" className="hover:text-white transition-colors">PDF to JPG</a></li>
-              <li><a href="/tool/pdf2word" className="hover:text-white transition-colors">PDF to Word</a></li>
+              <li><Link to="/tool/merge" className="hover:text-white transition-colors">Merge PDF</Link></li>
+              <li><Link to="/tool/split" className="hover:text-white transition-colors">Split PDF</Link></li>
+              <li><Link to="/tool/pdf2jpg" className="hover:text-white transition-colors">PDF to JPG</Link></li>
+              <li><Link to="/tool/pdf2word" className="hover:text-white transition-colors">PDF to Word</Link></li>
             </ul>
           </div>
 
@@ -31,10 +32,10 @@ const Footer = () => {
           <div>
             <h4 className="text-white font-bold text-sm mb-4 uppercase tracking-wider">Company</h4>
             <ul className="space-y-2 text-sm">
-              <li><a href="https://google.com" className="hover:text-white transition-colors">Terms of Service</a></li>
-              <li><a href="https://google.com" className="hover:text-white transition-colors">Privacy Policy</a></li>
-              <li><a href="https://google.com" className="hover:text-white transition-colors">API Docs</a></li>
-              <li><a href="https://google.com" className="hover:text-white transition-colors">Contact Support</a></li>
+              <li><Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
+              <li><Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
+              <li><Link to="/api-docs" className="hover:text-white transition-colors">API Docs</Link></li>
+              <li><Link to="/contact" className="hover:text-white transition-colors">Contact Support</Link></li>
             </ul>
           </div>
         </div>

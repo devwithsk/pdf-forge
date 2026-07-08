@@ -5,7 +5,6 @@ import {
   Send, 
   UploadCloud, 
   FileText, 
-  Brain, 
   Sparkles, 
   MessageSquare, 
   ArrowLeft, 
@@ -21,7 +20,6 @@ const AiHub = () => {
   const { user } = useAuth();
   
   // States
-  const [activeTab, setActiveTab] = useState('chat-pdf'); // 'chat-pdf' or 'ai-extractor'
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
@@ -37,10 +35,6 @@ const AiHub = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [statusMsg, setStatusMsg] = useState(null); // { type: 'success' | 'error', text: string }
-  
-  // Extractor States
-  const [extractedData, setExtractedData] = useState(null);
-  const [extracting, setExtracting] = useState(false);
   
   const messagesEndRef = useRef(null);
 
@@ -189,37 +183,11 @@ const AiHub = () => {
     }
   };
 
-  // Mock Extractor handler
-  const handleExtract = async () => {
-    if (!activeDocument) return;
-    setExtracting(true);
-    try {
-      // For now we simulate data extraction from active document
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setExtractedData({
-        title: activeDocument.replace('.pdf', ''),
-        metadata: {
-          author: "Unknown/Detected from text",
-          pages: 12,
-          language: "English"
-        },
-        entities: [
-          { name: "Doc Type", value: "Contract/Technical Guide" },
-          { name: "Key Topics", value: "RAG, Vector Database, LLMs, Vector Embeddings" }
-        ],
-        summary: "This document contains detailed information regarding setup steps, configuration specifications, and code architectures for implementing AI features."
-      });
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setExtracting(false);
-    }
-  };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto px-4 py-6 h-full flex flex-col min-h-0">
       {/* Back button and page header */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4 shrink-0">
         <div className="flex items-center gap-3">
           <Link to="/" className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-colors">
             <ArrowLeft size={18} />
@@ -237,55 +205,23 @@ const AiHub = () => {
             </p>
           </div>
         </div>
-
-        {/* Tab Switcher */}
-        <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200/40 w-full md:w-auto shrink-0 shadow-inner">
-          <button
-            onClick={() => {
-              setActiveTab('chat-pdf');
-              setExtractedData(null);
-            }}
-            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all duration-200 ${
-              activeTab === 'chat-pdf' 
-                ? 'bg-white dark:bg-slate-905 text-primary shadow-sm' 
-                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}
-          >
-            <Brain size={14} />
-            <span>Chat with PDF</span>
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab('ai-extractor');
-              setExtractedData(null);
-            }}
-            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all duration-200 ${
-              activeTab === 'ai-extractor' 
-                ? 'bg-white dark:bg-slate-905 text-primary shadow-sm' 
-                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}
-          >
-            <Sparkles size={14} />
-            <span>AI Data Extractor</span>
-          </button>
-        </div>
       </div>
 
       {/* Main split layout workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch min-h-[600px]">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch flex-1 min-h-0 pb-6">
         
         {/* Left Side: Document Manager */}
-        <div className="lg:col-span-4 flex flex-col gap-6">
+        <div className="lg:col-span-4 flex flex-col h-full min-h-0 gap-6">
           
           {/* File Upload card */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 shadow-premium dark:shadow-none rounded-2xl p-6 flex flex-col gap-4">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 text-slate-800 dark:text-white shadow-premium dark:shadow-none rounded-2xl p-6 flex flex-col gap-4 shrink-0">
             <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
               <UploadCloud size={16} className="text-primary" />
               <span>Index Document</span>
             </h3>
             
             {/* Drag drop slot */}
-            <div className="border-2 border-dashed border-slate-205 dark:border-slate-800 hover:border-primary/50 dark:hover:border-primary/50 rounded-xl p-6 text-center cursor-pointer transition-colors relative group">
+            <div className="border-2 border-dashed border-slate-205 dark:border-slate-700 hover:border-primary/50 dark:hover:border-primary/50 rounded-xl p-6 text-center cursor-pointer transition-colors relative group">
               <input
                 type="file"
                 accept=".pdf"
@@ -344,8 +280,8 @@ const AiHub = () => {
           </div>
 
           {/* Uploaded Documents List */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 shadow-premium dark:shadow-none rounded-2xl p-6 flex flex-col flex-grow min-h-[220px]">
-            <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 text-slate-800 dark:text-white shadow-premium dark:shadow-none rounded-2xl p-6 flex flex-col flex-1 min-h-0">
+            <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-4 flex items-center gap-2 shrink-0">
               <FileText size={16} className="text-primary" />
               <span>Workspace Library ({uploadedFiles.length})</span>
             </h3>
@@ -357,18 +293,17 @@ const AiHub = () => {
                 <p className="text-[10px] text-slate-400 mt-0.5">Upload a PDF to begin chatting.</p>
               </div>
             ) : (
-              <div className="space-y-2 overflow-y-auto max-h-[300px] pr-1">
+              <div className="space-y-2 overflow-y-auto flex-1 pr-1">
                 {uploadedFiles.map((file, idx) => (
                   <div
                     key={idx}
                     onClick={() => {
                       setActiveDocument(file.name);
-                      setExtractedData(null);
                     }}
                     className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
                       activeDocument === file.name
                         ? 'border-primary/30 bg-primary/5 dark:bg-primary/10'
-                        : 'border-slate-150 hover:border-slate-200 dark:border-slate-800 dark:hover:border-slate-700 bg-white dark:bg-slate-900'
+                        : 'border-slate-150 hover:border-slate-200 dark:border-slate-700 dark:hover:border-slate-600 bg-white dark:bg-slate-900/50'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -399,218 +334,116 @@ const AiHub = () => {
         </div>
 
         {/* Right Side: Interactive Action Workspace */}
-        <div className="lg:col-span-8 flex flex-col min-h-[500px]">
+        <div className="lg:col-span-8 flex flex-col h-full min-h-0">
           
-          {activeTab === 'chat-pdf' ? (
+          {/* Chat Interface */}
+          <div className="bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 shadow-premium dark:shadow-none rounded-2xl flex flex-col flex-1 overflow-hidden min-h-0">
             
-            /* Chat Interface */
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 shadow-premium dark:shadow-none rounded-2xl flex flex-col flex-1 overflow-hidden">
-              
-              {/* Chat Header */}
-              <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                    <MessageSquare size={16} />
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-                      Chat Room
-                    </h3>
-                    <p className="text-[10px] text-slate-400 font-semibold mt-0.5 truncate max-w-[200px] md:max-w-sm">
-                      {activeDocument ? `Target: ${activeDocument}` : 'No document selected'}
-                    </p>
-                  </div>
+            {/* Chat Header */}
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                  <MessageSquare size={16} />
                 </div>
-                {activeDocument && (
-                  <div className="bg-emerald-100/60 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 text-[9px] font-bold px-2 py-0.5 rounded flex items-center gap-0.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-                    <span>Ready</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Chat Message Window */}
-              <div className="flex-1 p-6 overflow-y-auto space-y-4 max-h-[450px] min-h-[350px]">
-                {messages.map((msg, idx) => (
-                  <div
-                    key={idx}
-                    className={`flex items-start gap-3 max-w-[85%] ${
-                      msg.sender === 'user' ? 'ml-auto flex-row-reverse' : ''
-                    }`}
-                  >
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-sm border ${
-                      msg.sender === 'user' 
-                        ? 'bg-slate-800 text-white border-slate-700' 
-                        : 'bg-primary/10 text-primary border-primary/20'
-                    }`}>
-                      {msg.sender === 'user' ? <FileText size={14} /> : <Bot size={14} />}
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <div className={`p-3.5 rounded-2xl text-xs leading-relaxed font-medium ${
-                        msg.sender === 'user'
-                          ? 'bg-primary text-white rounded-tr-none'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-tl-none'
-                      }`}>
-                        {msg.text}
-                      </div>
-
-                      {/* Display Sources/References if returned */}
-                      {msg.retrievedChunks && msg.retrievedChunks.length > 0 && (
-                        <details className="text-[10px] text-slate-450 cursor-pointer pl-1 mt-1 font-semibold">
-                          <summary className="hover:text-primary">View retrieved context sources ({msg.retrievedChunks.length})</summary>
-                          <div className="mt-1.5 space-y-1.5 bg-slate-50 dark:bg-slate-950/40 p-2.5 rounded-xl border border-slate-100 dark:border-slate-850">
-                            {msg.retrievedChunks.map((chunk, cIdx) => (
-                              <p key={cIdx} className="italic text-slate-500 border-l-2 border-primary/40 pl-2 leading-normal">
-                                "...{chunk}..."
-                              </p>
-                            ))}
-                          </div>
-                        </details>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                
-                {sending && (
-                  <div className="flex items-start gap-3 max-w-[85%]">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20">
-                      <Bot size={14} />
-                    </div>
-                    <div className="bg-slate-100 dark:bg-slate-800 px-4 py-3 rounded-2xl rounded-tl-none flex items-center gap-1.5 min-h-[36px]">
-                      <div className="w-1.5 h-1.5 bg-slate-400 dark:bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <div className="w-1.5 h-1.5 bg-slate-400 dark:bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <div className="w-1.5 h-1.5 bg-slate-400 dark:bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                    </div>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* Chat Input Bar */}
-              <form onSubmit={handleSendMessage} className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex gap-2">
-                <input
-                  type="text"
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  disabled={!activeDocument || sending}
-                  placeholder={
-                    activeDocument 
-                      ? `Ask a question about '${activeDocument}'...` 
-                      : 'Upload and select a PDF on the left first'
-                  }
-                  className="flex-1 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl px-4 py-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-60 disabled:cursor-not-allowed"
-                />
-                <button
-                  type="submit"
-                  disabled={!activeDocument || !inputMessage.trim() || sending}
-                  className="bg-primary hover:bg-primary-dark disabled:bg-slate-100 dark:disabled:bg-slate-800 text-white disabled:text-slate-400 px-4 rounded-xl flex items-center justify-center shrink-0 cursor-pointer transition-colors"
-                >
-                  <Send size={14} />
-                </button>
-              </form>
-
-            </div>
-          ) : (
-            
-            /* AI Data Extractor Interface */
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 shadow-premium dark:shadow-none rounded-2xl p-6 flex flex-col flex-1">
-              <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-6">
                 <div>
-                  <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
-                    <Sparkles size={16} className="text-primary" />
-                    <span>AI Data Extractor</span>
+                  <h3 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                    Chat Room
                   </h3>
-                  <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
-                    Automatically detect schema, entities, and summaries.
+                  <p className="text-[10px] text-slate-400 font-semibold mt-0.5 truncate max-w-[200px] md:max-w-sm">
+                    {activeDocument ? `Target: ${activeDocument}` : 'No document selected'}
                   </p>
                 </div>
-                <button
-                  onClick={handleExtract}
-                  disabled={!activeDocument || extracting}
-                  className="bg-primary hover:bg-primary-dark disabled:bg-slate-100 dark:disabled:bg-slate-800 text-white disabled:text-slate-400 font-bold text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  {extracting ? (
-                    <>
-                      <Loader2 size={12} className="animate-spin" />
-                      <span>Extracting...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles size={12} />
-                      <span>Run Extractor</span>
-                    </>
-                  )}
-                </button>
               </div>
-
-              {!activeDocument ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-slate-400">
-                  <Sparkles size={48} className="mb-2 text-slate-300 opacity-50" />
-                  <p className="text-xs font-bold">No document selected</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Select a PDF file from the library panel to begin extraction.</p>
-                </div>
-              ) : extractedData ? (
-                <div className="space-y-5 animate-fade-in text-xs font-medium">
-                  {/* Summary Block */}
-                  <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
-                    <h4 className="font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2 text-[10px]">
-                      Document Summary
-                    </h4>
-                    <p className="text-slate-600 dark:text-slate-300 leading-relaxed font-semibold">
-                      {extractedData.summary}
-                    </p>
-                  </div>
-
-                  {/* Metadata Block */}
-                  <div>
-                    <h4 className="font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-3 text-[10px]">
-                      Extracted Metadata Attributes
-                    </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      {Object.entries(extractedData.metadata).map(([key, value]) => (
-                        <div key={key} className="p-3 bg-white dark:bg-slate-950/20 border border-slate-200/60 dark:border-slate-800 rounded-xl">
-                          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">{key}</p>
-                          <p className="text-slate-700 dark:text-slate-200 font-bold mt-1 text-xs truncate">{value}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Entity Entities Block */}
-                  <div>
-                    <h4 className="font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-3 text-[10px]">
-                      Key Entity Classification
-                    </h4>
-                    <div className="border border-slate-200/50 dark:border-slate-850 rounded-xl overflow-hidden">
-                      <table className="min-w-full divide-y divide-slate-155">
-                        <thead className="bg-slate-50 dark:bg-slate-900/30">
-                          <tr>
-                            <th className="px-4 py-2.5 text-left text-[9px] font-bold text-slate-400 uppercase tracking-wider">Entity Class</th>
-                            <th className="px-4 py-2.5 text-left text-[9px] font-bold text-slate-400 uppercase tracking-wider">Value</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-155 bg-white dark:bg-slate-900">
-                          {extractedData.entities.map((entity, i) => (
-                            <tr key={i}>
-                              <td className="px-4 py-2.5 font-bold text-slate-600 dark:text-slate-400">{entity.name}</td>
-                              <td className="px-4 py-2.5 text-slate-800 dark:text-slate-200 font-semibold">{entity.value}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-slate-400">
-                  <Sparkles size={36} className="mb-2 text-slate-300 animate-pulse" />
-                  <p className="text-xs font-semibold">Document loaded successfully</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Click "Run Extractor" to analyze semantic entities and generate metadata summaries.</p>
+              {activeDocument && (
+                <div className="bg-emerald-100/60 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 text-[9px] font-bold px-2 py-0.5 rounded flex items-center gap-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                  <span>Ready</span>
                 </div>
               )}
             </div>
-          )}
+
+            {/* Chat Message Window */}
+            <div className="flex-1 p-6 overflow-y-auto space-y-4 min-h-0">
+              {messages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`flex items-start gap-3 max-w-[85%] ${
+                    msg.sender === 'user' ? 'ml-auto flex-row-reverse' : ''
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-sm border ${
+                    msg.sender === 'user' 
+                      ? 'bg-slate-800 dark:bg-slate-750 text-white border-slate-700 dark:border-slate-650' 
+                      : 'bg-primary/10 text-primary border-primary/20'
+                  }`}>
+                    {msg.sender === 'user' ? <FileText size={14} /> : <Bot size={14} />}
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <div className={`p-3.5 rounded-2xl text-xs leading-relaxed font-medium ${
+                      msg.sender === 'user'
+                        ? 'bg-primary text-white rounded-tr-none'
+                        : 'bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-tl-none'
+                    }`}>
+                      {msg.text}
+                    </div>
+
+                    {/* Display Sources/References if returned */}
+                    {msg.retrievedChunks && msg.retrievedChunks.length > 0 && (
+                      <details className="text-[10px] text-slate-450 cursor-pointer pl-1 mt-1 font-semibold">
+                        <summary className="hover:text-primary">View retrieved context sources ({msg.retrievedChunks.length})</summary>
+                        <div className="mt-1.5 space-y-1.5 bg-slate-50 dark:bg-slate-950/40 p-2.5 rounded-xl border border-slate-100 dark:border-slate-850">
+                          {msg.retrievedChunks.map((chunk, cIdx) => (
+                            <p key={cIdx} className="italic text-slate-500 border-l-2 border-primary/40 pl-2 leading-normal">
+                              "...{chunk}..."
+                            </p>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+                  </div>
+                </div>
+              ))}
+              
+              {sending && (
+                <div className="flex items-start gap-3 max-w-[85%]">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20">
+                    <Bot size={14} />
+                  </div>
+                  <div className="bg-slate-100 dark:bg-slate-900 px-4 py-3 rounded-2xl rounded-tl-none flex items-center gap-1.5 min-h-[36px]">
+                    <div className="w-1.5 h-1.5 bg-slate-400 dark:bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <div className="w-1.5 h-1.5 bg-slate-400 dark:bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <div className="w-1.5 h-1.5 bg-slate-400 dark:bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Chat Input Bar */}
+            <form onSubmit={handleSendMessage} className="p-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 flex gap-2 shrink-0">
+              <input
+                type="text"
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                disabled={!activeDocument || sending}
+                placeholder={
+                  activeDocument 
+                    ? `Ask a question about '${activeDocument}'...` 
+                    : 'Upload and select a PDF on the left first'
+                }
+                className="flex-1 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl px-4 py-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-60 disabled:cursor-not-allowed"
+              />
+              <button
+                type="submit"
+                disabled={!activeDocument || !inputMessage.trim() || sending}
+                className="bg-primary hover:bg-primary-dark disabled:bg-slate-100 dark:disabled:bg-slate-800 text-white disabled:text-slate-400 px-4 rounded-xl flex items-center justify-center shrink-0 cursor-pointer transition-colors"
+              >
+                <Send size={14} />
+              </button>
+            </form>
+
+          </div>
 
         </div>
 

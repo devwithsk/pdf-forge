@@ -13,7 +13,12 @@ const Navbar = () => {
   const { user, signOut } = useAuth();
 
   const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('theme') || 'light';
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+      return savedTheme;
+    }
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return systemPrefersDark ? 'dark' : 'light';
   });
 
   useEffect(() => {
@@ -151,28 +156,7 @@ const Navbar = () => {
                       <span>Profile</span>
                     </Link>
 
-                    {/* Theme Toggle Switch */}
-                    <button
-                      onClick={toggleTheme}
-                      className="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-primary/5 hover:text-primary dark:hover:bg-slate-700 transition-all cursor-pointer border-none bg-transparent"
-                    >
-                      <div className="flex items-center gap-2">
-                        {theme === 'dark' ? (
-                          <>
-                            <Icons.Sun size={13} className="text-amber-500" />
-                            <span>Theme: Light</span>
-                          </>
-                        ) : (
-                          <>
-                            <Icons.Moon size={13} className="text-slate-400 dark:text-slate-500" />
-                            <span>Theme: Dark</span>
-                          </>
-                        )}
-                      </div>
-                      <div className={`w-8 h-4.5 rounded-full p-0.5 transition-colors duration-200 ${theme === 'dark' ? 'bg-primary' : 'bg-slate-200 dark:bg-slate-700'}`}>
-                        <div className={`w-3.5 h-3.5 rounded-full bg-white transition-transform duration-200 ${theme === 'dark' ? 'translate-x-3.5' : 'translate-x-0'}`}></div>
-                      </div>
-                    </button>
+
 
                     <div className="border-t border-slate-50 dark:border-slate-700 my-1.5"></div>
 
@@ -235,7 +219,7 @@ const Navbar = () => {
                   return (
                     <li key={t.id}>
                       <Link
-                        to={`/tool/${t.id}`}
+                        to={t.isAI ? "/ai-hub" : `/tool/${t.id}`}
                         onClick={() => setIsMegaOpen(false)}
                         className="flex items-center gap-2 p-1.5 rounded-lg text-slate-700 hover:text-primary hover:bg-primary/5 transition-all group font-medium"
                       >
@@ -372,7 +356,7 @@ const Navbar = () => {
                   return (
                     <Link
                       key={t.id}
-                      to={`/tool/${t.id}`}
+                      to={t.isAI ? "/ai-hub" : `/tool/${t.id}`}
                       onClick={() => setIsOpen(false)}
                       className="flex items-center gap-2 p-1.5 text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-primary transition-colors font-medium"
                     >
